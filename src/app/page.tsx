@@ -60,6 +60,7 @@ const WATCHES: WatchItem[] = [
   { id: "model-8", name: "موديل 8", image: "/images/watches/8.webp" },
   { id: "model-9", name: "موديل 9", image: "/images/watches/9.webp" },
   { id: "model-10", name: "موديل 10", image: "/images/watches/10.webp" },
+  { id: "model-11", name: "موديل 11", image: "/images/watches/11.webp" },
 ];
 
 // Delivery Costs
@@ -77,13 +78,17 @@ const API_URL = "/api/submit-order";
 function initMetaPixel(): void {
   try {
     if (typeof window !== "undefined") {
-      const win = window as unknown as { 
-        fbq?: (action: string, eventName: string, params?: Record<string, unknown>) => void;
+      const win = window as unknown as {
+        fbq?: (
+          action: string,
+          eventName: string,
+          params?: Record<string, unknown>,
+        ) => void;
         _fbq?: unknown;
       };
-      
+
       if (!win.fbq) {
-        const script = document.createElement('script');
+        const script = document.createElement("script");
         script.innerHTML = `
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -95,11 +100,11 @@ function initMetaPixel(): void {
           'https://connect.facebook.net/en_US/fbevents.js');
         `;
         document.head.appendChild(script);
-        
+
         setTimeout(() => {
           if (win.fbq) {
-            win.fbq('init', 'YOUR_PIXEL_ID');
-            win.fbq('track', 'PageView');
+            win.fbq("init", "YOUR_PIXEL_ID");
+            win.fbq("track", "PageView");
           }
         }, 100);
       }
@@ -112,8 +117,12 @@ function initMetaPixel(): void {
 function trackFb(event: string, params?: Record<string, unknown>): void {
   try {
     if (typeof window !== "undefined") {
-      const win = window as unknown as { 
-        fbq?: (action: string, eventName: string, params?: Record<string, unknown>) => void 
+      const win = window as unknown as {
+        fbq?: (
+          action: string,
+          eventName: string,
+          params?: Record<string, unknown>,
+        ) => void;
       };
       if (typeof win.fbq === "function") {
         win.fbq("track", event, params);
@@ -152,7 +161,7 @@ interface ValidationErrors {
 function validateForm(
   formData: FormData,
   selectedWatchId: string | null,
-  deliveryOption: DeliveryOption | null
+  deliveryOption: DeliveryOption | null,
 ): ValidationErrors {
   const errors: ValidationErrors = {};
 
@@ -196,7 +205,9 @@ export default function Page() {
 
   // State
   const [selectedWatchId, setSelectedWatchId] = useState<string | null>(null);
-  const [deliveryOption, setDeliveryOption] = useState<DeliveryOption | null>(null);
+  const [deliveryOption, setDeliveryOption] = useState<DeliveryOption | null>(
+    null,
+  );
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     phone: "",
@@ -213,7 +224,7 @@ export default function Page() {
   // Get Selected Watch
   const selectedWatch = useMemo(
     () => WATCHES.find((w) => w.id === selectedWatchId) || null,
-    [selectedWatchId]
+    [selectedWatchId],
   );
 
   // Calculate Total Price
@@ -230,7 +241,7 @@ export default function Page() {
     setLightboxIndex(index);
     setLightboxOpen(true);
     document.body.style.overflow = "hidden";
-    
+
     trackFb("ViewContent", {
       content_type: "product",
       content_ids: [WATCHES[index].id],
@@ -272,12 +283,19 @@ export default function Page() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationErrors = validateForm(formData, selectedWatchId, deliveryOption);
+    const validationErrors = validateForm(
+      formData,
+      selectedWatchId,
+      deliveryOption,
+    );
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorElement = document.querySelector("[data-error='true']");
-      firstErrorElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+      firstErrorElement?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
 
@@ -291,12 +309,15 @@ export default function Page() {
         wilaya: formData.wilaya.trim(),
         baladiya: formData.baladiya.trim(),
         selectedWatchId: selectedWatchId!,
+        selectedWatchName: selectedWatch?.name || selectedWatchId!,
         boxPrice: BOX_PRICE,
         deliveryOption: deliveryOption!,
         deliveryCost: DELIVERY_COST[deliveryOption!],
         total,
         notes: formData.notes?.trim(),
-        clientRequestId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        clientRequestId:
+          crypto.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       };
 
       const response = await fetch(API_URL, {
@@ -314,7 +335,7 @@ export default function Page() {
           value: total,
           currency: "DZD",
         });
-        
+
         setShowSuccess(true);
         setTimeout(() => {
           window.location.reload();
@@ -330,13 +351,13 @@ export default function Page() {
   };
 
   // Styles - White, Brown, Red Theme
-  const inputBaseClass = "w-full rounded-xl border px-4 py-3.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2";
+  const inputBaseClass =
+    "w-full rounded-xl border px-4 py-3.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2";
   const inputNormalClass = `${inputBaseClass} border-amber-200 focus:border-amber-600 focus:ring-amber-600/10`;
   const inputErrorClass = `${inputBaseClass} border-red-300 focus:border-red-500 focus:ring-red-500/10`;
 
   return (
     <div dir="rtl" className="min-h-screen bg-white text-slate-800">
-      
       {/* Header */}
       <header className="bg-white border-b border-amber-100 sticky top-0 z-40 shadow-sm">
         <div className="mx-auto max-w-6xl px-4 py-4">
@@ -346,13 +367,17 @@ export default function Page() {
                 <Package className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg text-slate-800">متجر الساعات</h1>
+                <h1 className="font-bold text-lg text-slate-800">
+                  متجر الساعات
+                </h1>
                 <p className="text-xs text-amber-700">أناقة وجودة</p>
               </div>
             </div>
             <div className="text-left">
               <p className="text-xs text-slate-500">السعر</p>
-              <p className="text-xl font-bold text-red-600">{formatDZD(BOX_PRICE)}</p>
+              <p className="text-xl font-bold text-red-600">
+                {formatDZD(BOX_PRICE)}
+              </p>
             </div>
           </div>
         </div>
@@ -362,7 +387,6 @@ export default function Page() {
       <section className="bg-gradient-to-b from-amber-50 to-white py-12 md:py-20">
         <div className="mx-auto max-w-6xl px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            
             {/* Main Product Image */}
             <div className="relative aspect-square rounded-3xl overflow-hidden bg-amber-100 shadow-xl border-4 border-amber-100">
               <Image
@@ -393,15 +417,20 @@ export default function Page() {
             {/* Hero Content */}
             <div className="space-y-6">
               <div>
-                <p className="text-sm font-semibold text-red-600 mb-2">منتج حصري</p>
+                <p className="text-sm font-semibold text-red-600 mb-2">
+                  منتج حصري
+                </p>
                 <h1 className="text-4xl md:text-5xl font-bold text-slate-800 leading-tight">
                   طقم ساعة فاخر
-                  <span className="block text-amber-700 text-2xl md:text-3xl mt-2">10 موديلات متوفرة</span>
+                  <span className="block text-amber-700 text-2xl md:text-3xl mt-2">
+                    11 موديل متوفر
+                  </span>
                 </h1>
               </div>
 
               <p className="text-lg text-slate-600 leading-relaxed">
-                احصل على طقم ساعة فاخر يشمل العلبة والإكسسوارات. اختر من 10 موديلات مميزة بنفس السعر.
+                احصل على طقم ساعة فاخر يشمل العلبة والإكسسوارات. اختر من 11
+                موديل مميز بنفس السعر.
               </p>
 
               {/* Price Box */}
@@ -409,14 +438,18 @@ export default function Page() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600">السعر شامل الموديل</p>
-                    <p className="text-4xl font-bold text-red-600">{formatDZD(BOX_PRICE)}</p>
-                    <p className="text-sm text-slate-500 mt-1">اختر أي موديل من الـ 10 متاح</p>
+                    <p className="text-4xl font-bold text-red-600">
+                      {formatDZD(BOX_PRICE)}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      اختر أي موديل من الـ 11 متاح
+                    </p>
                   </div>
                   <div className="text-center">
                     <div className="w-16 h-16 bg-amber-700 rounded-2xl flex items-center justify-center mb-2">
                       <Star className="w-8 h-8 text-white" />
                     </div>
-                    <p className="text-xs text-slate-500">10 موديلات</p>
+                    <p className="text-xs text-slate-500">11 موديل</p>
                   </div>
                 </div>
               </div>
@@ -425,7 +458,7 @@ export default function Page() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle2 className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  <span>10 موديلات للاختيار</span>
+                  <span>11 موديل للاختيار</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-700">
                   <CheckCircle2 className="w-5 h-5 text-red-600 flex-shrink-0" />
@@ -460,13 +493,14 @@ export default function Page() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white text-amber-700 border border-amber-200 rounded-full text-sm font-semibold mb-4">
               <Star className="w-4 h-4 text-red-600" />
-              10 موديلات متاحة
+              11 موديل متاح
             </div>
             <h2 className="text-3xl font-bold text-slate-800 mb-4">
               اختر موديلك المفضل
             </h2>
             <p className="text-slate-600 max-w-2xl mx-auto">
-              جميع الموديلات متضمنة في السعر. اضغط على أي صورة لمشاهدتها بالتفصيل.
+              جميع الموديلات متضمنة في السعر. اضغط على أي صورة لمشاهدتها
+              بالتفصيل
             </p>
           </div>
 
@@ -491,7 +525,7 @@ export default function Page() {
                     className="object-cover"
                     loading={index < 5 ? "eager" : "lazy"}
                   />
-                  
+
                   {/* Model Number */}
                   <div className="absolute top-3 right-3">
                     <span className="inline-flex items-center justify-center w-8 h-8 bg-amber-700 text-white rounded-full text-sm font-bold shadow">
@@ -499,10 +533,14 @@ export default function Page() {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="p-3">
-                  <p className="font-medium text-slate-800 text-sm text-center">{watch.name}</p>
-                  <p className="text-red-600 text-xs text-center mt-1">متضمن في السعر</p>
+                  <p className="font-medium text-slate-800 text-sm text-center">
+                    {watch.name}
+                  </p>
+                  <p className="text-red-600 text-xs text-center mt-1">
+                    متضمن في السعر
+                  </p>
                 </div>
 
                 {/* Hover Overlay */}
@@ -529,33 +567,32 @@ export default function Page() {
       <section id="order" className="py-16 bg-white">
         <div className="mx-auto max-w-2xl px-4">
           <div className="bg-amber-50 rounded-3xl shadow-xl p-8 md:p-12 border border-amber-200">
-            
             <div className="text-center mb-10">
               <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3">
                 أكمل طلبك
               </h2>
-              <p className="text-slate-600">
-                اختر الموديل واملأ بياناتك
-              </p>
+              <p className="text-slate-600">اختر الموديل واملأ بياناتك</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              
               {/* Model Selection (Required) */}
-              <div className="bg-white rounded-2xl p-6 border-2 border-amber-300" data-error={errors.watch ? "true" : undefined}>
+              <div
+                className="bg-white rounded-2xl p-6 border-2 border-amber-300"
+                data-error={errors.watch ? "true" : undefined}
+              >
                 <label className="block text-sm font-bold text-slate-800 mb-3">
                   اختر موديل الساعة *
                 </label>
-                
+
                 <select
                   value={selectedWatchId || ""}
                   onChange={(e) => handleWatchSelect(e.target.value)}
                   className={`w-full rounded-xl border-2 px-4 py-3 text-sm focus:outline-none focus:ring-2 appearance-none bg-white cursor-pointer ${
-                    errors.watch 
-                      ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" 
+                    errors.watch
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-500/10"
                       : "border-amber-200 focus:border-amber-600 focus:ring-amber-600/10"
                   }`}
-                  style={{ backgroundImage: 'none' }}
+                  style={{ backgroundImage: "none" }}
                 >
                   <option value="">-- اختر موديل --</option>
                   {WATCHES.map((watch) => (
@@ -564,20 +601,22 @@ export default function Page() {
                     </option>
                   ))}
                 </select>
-                
+
                 <p className="text-xs text-slate-500 mt-2">
                   جميع الموديلات بنفس السعر {formatDZD(BOX_PRICE)}
                 </p>
 
                 {errors.watch && (
-                  <p className="text-red-500 text-sm mt-2 font-medium">{errors.watch}</p>
+                  <p className="text-red-500 text-sm mt-2 font-medium">
+                    {errors.watch}
+                  </p>
                 )}
 
                 {/* Selected Model Preview */}
                 {selectedWatch && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                    animate={{ opacity: 1, height: "auto" }}
                     className="mt-4 pt-4 border-t border-amber-100"
                   >
                     <div className="flex items-center gap-4">
@@ -591,9 +630,15 @@ export default function Page() {
                         />
                       </div>
                       <div className="flex-1">
-                        <p className="font-bold text-slate-800">{selectedWatch.name}</p>
-                        <p className="text-emerald-600 text-sm font-medium">تم الاختيار</p>
-                        <p className="text-red-600 font-bold">{formatDZD(BOX_PRICE)}</p>
+                        <p className="font-bold text-slate-800">
+                          {selectedWatch.name}
+                        </p>
+                        <p className="text-emerald-600 text-sm font-medium">
+                          تم الاختيار
+                        </p>
+                        <p className="text-red-600 font-bold">
+                          {formatDZD(BOX_PRICE)}
+                        </p>
                       </div>
                       <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
                         <CheckCircle2 className="w-6 h-6 text-emerald-600" />
@@ -614,16 +659,23 @@ export default function Page() {
                       type="text"
                       value={formData.fullName}
                       onChange={(e) => {
-                        setFormData((f) => ({ ...f, fullName: e.target.value }));
+                        setFormData((f) => ({
+                          ...f,
+                          fullName: e.target.value,
+                        }));
                         setErrors((prev) => ({ ...prev, fullName: undefined }));
                       }}
                       placeholder="أحمد محمد"
-                      className={errors.fullName ? inputErrorClass : inputNormalClass}
+                      className={
+                        errors.fullName ? inputErrorClass : inputNormalClass
+                      }
                     />
                     <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   </div>
                   {errors.fullName && (
-                    <p className="text-red-500 text-sm mt-2">{errors.fullName}</p>
+                    <p className="text-red-500 text-sm mt-2">
+                      {errors.fullName}
+                    </p>
                   )}
                 </div>
 
@@ -640,7 +692,9 @@ export default function Page() {
                         setErrors((prev) => ({ ...prev, phone: undefined }));
                       }}
                       placeholder="0555 123 456"
-                      className={errors.phone ? inputErrorClass : inputNormalClass}
+                      className={
+                        errors.phone ? inputErrorClass : inputNormalClass
+                      }
                     />
                     <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   </div>
@@ -665,7 +719,9 @@ export default function Page() {
                         setErrors((prev) => ({ ...prev, wilaya: undefined }));
                       }}
                       placeholder="مثال: الجزائر العاصمة"
-                      className={errors.wilaya ? inputErrorClass : inputNormalClass}
+                      className={
+                        errors.wilaya ? inputErrorClass : inputNormalClass
+                      }
                     />
                     <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   </div>
@@ -683,16 +739,23 @@ export default function Page() {
                       type="text"
                       value={formData.baladiya}
                       onChange={(e) => {
-                        setFormData((f) => ({ ...f, baladiya: e.target.value }));
+                        setFormData((f) => ({
+                          ...f,
+                          baladiya: e.target.value,
+                        }));
                         setErrors((prev) => ({ ...prev, baladiya: undefined }));
                       }}
                       placeholder="مثال: باب الزوار"
-                      className={errors.baladiya ? inputErrorClass : inputNormalClass}
+                      className={
+                        errors.baladiya ? inputErrorClass : inputNormalClass
+                      }
                     />
                     <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   </div>
                   {errors.baladiya && (
-                    <p className="text-red-500 text-sm mt-2">{errors.baladiya}</p>
+                    <p className="text-red-500 text-sm mt-2">
+                      {errors.baladiya}
+                    </p>
                   )}
                 </div>
               </div>
@@ -703,7 +766,6 @@ export default function Page() {
                   طريقة التوصيل *
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
                   {/* Desk Delivery */}
                   <button
                     type="button"
@@ -714,18 +776,30 @@ export default function Page() {
                         : "border-amber-200 hover:border-amber-400"
                     }`}
                   >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                      deliveryOption === "desk" ? "border-amber-600" : "border-slate-300"
-                    }`}>
-                      {deliveryOption === "desk" && <div className="w-3 h-3 rounded-full bg-amber-600" />}
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        deliveryOption === "desk"
+                          ? "border-amber-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {deliveryOption === "desk" && (
+                        <div className="w-3 h-3 rounded-full bg-amber-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-amber-700" />
-                        <span className="font-bold text-slate-800">توصيل للمكتب</span>
+                        <span className="font-bold text-slate-800">
+                          توصيل للمكتب
+                        </span>
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">استلام من مكتبنا</p>
-                      <p className="text-lg font-bold text-red-600 mt-2">{formatDZD(DELIVERY_COST.desk)}</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        استلام من مكتبنا
+                      </p>
+                      <p className="text-lg font-bold text-red-600 mt-2">
+                        {formatDZD(DELIVERY_COST.desk)}
+                      </p>
                     </div>
                   </button>
 
@@ -739,18 +813,30 @@ export default function Page() {
                         : "border-amber-200 hover:border-amber-400"
                     }`}
                   >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                      deliveryOption === "home" ? "border-amber-600" : "border-slate-300"
-                    }`}>
-                      {deliveryOption === "home" && <div className="w-3 h-3 rounded-full bg-amber-600" />}
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        deliveryOption === "home"
+                          ? "border-amber-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {deliveryOption === "home" && (
+                        <div className="w-3 h-3 rounded-full bg-amber-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <Home className="w-5 h-5 text-amber-700" />
-                        <span className="font-bold text-slate-800">توصيل للمنزل</span>
+                        <span className="font-bold text-slate-800">
+                          توصيل للمنزل
+                        </span>
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">توصيل حتى باب المنزل</p>
-                      <p className="text-lg font-bold text-red-600 mt-2">{formatDZD(DELIVERY_COST.home)}</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        توصيل حتى باب المنزل
+                      </p>
+                      <p className="text-lg font-bold text-red-600 mt-2">
+                        {formatDZD(DELIVERY_COST.home)}
+                      </p>
                     </div>
                   </button>
                 </div>
@@ -766,7 +852,9 @@ export default function Page() {
                 </label>
                 <textarea
                   value={formData.notes || ""}
-                  onChange={(e) => setFormData((f) => ({ ...f, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((f) => ({ ...f, notes: e.target.value }))
+                  }
                   rows={3}
                   placeholder="عنوان تفصيلي أو ملاحظات خاصة..."
                   className="w-full rounded-xl border border-amber-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600/10 focus:border-amber-600 resize-none"
@@ -775,29 +863,38 @@ export default function Page() {
 
               {/* Total & Submit */}
               <div className="pt-6 border-t border-amber-200">
-                
                 {/* Price Summary */}
                 <div className="bg-white rounded-xl p-4 mb-6 border border-amber-200">
                   <div className="flex items-center justify-between py-2">
                     <div>
                       <p className="text-slate-700">الطقم + الموديل المختار</p>
-                      <p className="text-xs text-slate-500">{selectedWatch ? selectedWatch.name : "لم يتم الاختيار"}</p>
+                      <p className="text-xs text-slate-500">
+                        {selectedWatch ? selectedWatch.name : "لم يتم الاختيار"}
+                      </p>
                     </div>
-                    <p className="font-semibold text-slate-800">{formatDZD(BOX_PRICE)}</p>
+                    <p className="font-semibold text-slate-800">
+                      {formatDZD(BOX_PRICE)}
+                    </p>
                   </div>
-                  
+
                   {deliveryOption && (
                     <div className="flex items-center justify-between py-2 border-t border-amber-100">
                       <p className="text-slate-700">
-                        {deliveryOption === "desk" ? "توصيل للمكتب" : "توصيل للمنزل"}
+                        {deliveryOption === "desk"
+                          ? "توصيل للمكتب"
+                          : "توصيل للمنزل"}
                       </p>
-                      <p className="font-semibold text-slate-800">+ {formatDZD(DELIVERY_COST[deliveryOption])}</p>
+                      <p className="font-semibold text-slate-800">
+                        + {formatDZD(DELIVERY_COST[deliveryOption])}
+                      </p>
                     </div>
                   )}
-                  
+
                   <div className="flex items-center justify-between pt-4 mt-2 border-t-2 border-amber-300">
                     <p className="font-bold text-slate-800">المجموع الكلي</p>
-                    <p className="text-2xl font-bold text-red-600">{formatDZD(total)}</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {formatDZD(total)}
+                    </p>
                   </div>
                 </div>
 
@@ -812,7 +909,7 @@ export default function Page() {
                       <Loader2 className="w-5 h-5 animate-spin" />
                       جاري إرسال الطلب...
                     </>
-                    ) : (
+                  ) : (
                     <>
                       <ShoppingCart className="w-5 h-5" />
                       تأكيد الطلب
@@ -849,14 +946,20 @@ export default function Page() {
             </button>
 
             <button
-              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                prevImage();
+              }}
               className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
             >
               <ChevronRight className="w-6 h-6" />
             </button>
 
             <button
-              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                nextImage();
+              }}
               className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -901,7 +1004,10 @@ export default function Page() {
               {WATCHES.map((_, idx) => (
                 <button
                   key={idx}
-                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(idx);
+                  }}
                   className={`w-2 h-2 rounded-full transition-all ${
                     idx === lightboxIndex ? "bg-red-500 w-6" : "bg-white/40"
                   }`}
@@ -968,7 +1074,6 @@ export default function Page() {
           </p>
         </div>
       </footer>
-
     </div>
   );
 }

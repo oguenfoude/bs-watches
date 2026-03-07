@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 
 // Order data interface
 interface OrderData {
@@ -10,6 +12,7 @@ interface OrderData {
   wilaya: string;
   baladiya: string;
   selectedWatchId: string;
+  selectedWatchName?: string;
   boxPrice: number;
   deliveryOption: "home" | "desk";
   deliveryCost: number;
@@ -81,6 +84,7 @@ async function appendToSheet(orderData: OrderData): Promise<number> {
   const sheets = getGoogleSheetsClient();
 
   const now = new Date();
+  const watchLabel = orderData.selectedWatchName || orderData.selectedWatchId;
   const rowData = [
     now.toISOString(),
     orderData.clientRequestId || "",
@@ -88,7 +92,7 @@ async function appendToSheet(orderData: OrderData): Promise<number> {
     orderData.phone,
     orderData.wilaya,
     orderData.baladiya,
-    orderData.selectedWatchId,
+    watchLabel,
     orderData.deliveryOption === "home" ? "توصيل للمنزل" : "توصيل للمكتب",
     orderData.boxPrice.toString(),
     orderData.deliveryCost.toString(),
@@ -111,7 +115,10 @@ async function appendToSheet(orderData: OrderData): Promise<number> {
     return rowMatch ? parseInt(rowMatch[1], 10) : 0;
   } catch (error) {
     // If Sheet1 doesn't exist, try without sheet name (default sheet)
-    if (error instanceof Error && error.message?.includes("Unable to parse range")) {
+    if (
+      error instanceof Error &&
+      error.message?.includes("Unable to parse range")
+    ) {
       const response = await sheets.spreadsheets.values.append({
         spreadsheetId,
         range: "A:M",
@@ -128,13 +135,33 @@ async function appendToSheet(orderData: OrderData): Promise<number> {
   }
 }
 
-// Get watch image URL
-function getWatchImageUrl(watchId: string): string {
+// Read watch image from disk and return as Buffer + filename
+function getWatchImageAttachment(
+  watchId: string,
+): { content: Buffer; filename: string; cid: string } | null {
   const match = watchId.match(/model-(\d+)/);
-  if (match) {
-    return `https://your-domain.com/images/watches/${match[1]}.webp`;
+  if (!match) return null;
+
+  const imageNumber = match[1];
+  const imagePath = path.join(
+    process.cwd(),
+    "public",
+    "images",
+    "watches",
+    `${imageNumber}.webp`,
+  );
+
+  try {
+    const content = fs.readFileSync(imagePath);
+    return {
+      content,
+      filename: `watch-${imageNumber}.webp`,
+      cid: `watch-image-${imageNumber}@bsmonters`,
+    };
+  } catch (err) {
+    console.error(`Failed to read watch image at ${imagePath}:`, err);
+    return null;
   }
-  return "";
 }
 
 // Send email notification
@@ -143,81 +170,111 @@ async function sendEmailNotification(orderData: OrderData): Promise<void> {
   if (!transporter) return;
 
   // Get notification emails from env (comma separated)
-  const notificationEmails = process.env.ORDER_NOTIFICATION_EMAIL || process.env.SMTP_FROM_EMAIL;
+  const notificationEmails =
+    process.env.ORDER_NOTIFICATION_EMAIL || process.env.SMTP_FROM_EMAIL;
   if (!notificationEmails) return;
 
   const deliveryLabel =
     orderData.deliveryOption === "home" ? "توصيل للمنزل" : "توصيل للمكتب";
 
-  const watchImageUrl = getWatchImageUrl(orderData.selectedWatchId);
+  const watchName = orderData.selectedWatchName || orderData.selectedWatchId;
+
+  // Get the watch image as a CID attachment
+  const watchImageAttachment = getWatchImageAttachment(
+    orderData.selectedWatchId,
+  );
+
+  // Build image HTML: embedded CID if available, otherwise just text
+  const imageHtml = watchImageAttachment
+    ? `<img src="cid:${watchImageAttachment.cid}" alt="${watchName}" style="max-width: 250px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />`
+    : `<p style="color: #92400e; font-style: italic;">صورة الموديل غير متوفرة</p>`;
 
   const mailOptions = {
     from: `"طلبات المتجر" <${process.env.SMTP_FROM_EMAIL}>`,
     to: notificationEmails, // Can be comma-separated for multiple recipients
-    subject: `طلب جديد #${orderData.clientRequestId?.slice(-6)} - ${orderData.fullName}`,
+    subject: `🛒 طلب جديد #${orderData.clientRequestId?.slice(-6)} - ${orderData.fullName}`,
+    attachments: watchImageAttachment
+      ? [
+          {
+            filename: watchImageAttachment.filename,
+            content: watchImageAttachment.content,
+            cid: watchImageAttachment.cid,
+            contentType: "image/webp",
+          },
+        ]
+      : [],
     html: `
-      <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
-        <div style="background: #b45309; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h2 style="margin: 0;">طلب جديد</h2>
-          <p style="margin: 5px 0 0 0;">رقم الطلب: #${orderData.clientRequestId?.slice(-6)}</p>
+      <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fffbeb; border-radius: 16px; overflow: hidden; border: 1px solid #fde68a;">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #92400e, #b45309); color: white; padding: 24px; text-align: center;">
+          <h2 style="margin: 0; font-size: 22px;">🛒 طلب جديد</h2>
+          <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">رقم الطلب: #${orderData.clientRequestId?.slice(-6)}</p>
         </div>
         
-        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-top: none;">
+        <div style="padding: 24px;">
           
-          <!-- Product Image -->
-          <div style="text-align: center; margin-bottom: 20px; padding: 20px; background: #fef3c7; border-radius: 10px;">
-            <h3 style="color: #92400e; margin-bottom: 15px;">المنتج المختار</h3>
-            ${watchImageUrl ? `<img src="${watchImageUrl}" alt="${orderData.selectedWatchId}" style="max-width: 200px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />` : ""}
-            <p style="font-size: 18px; font-weight: bold; color: #92400e; margin-top: 10px;">${orderData.selectedWatchId}</p>
+          <!-- Product Image Section -->
+          <div style="text-align: center; margin-bottom: 24px; padding: 24px; background: white; border-radius: 12px; border: 2px solid #fde68a;">
+            <h3 style="color: #92400e; margin: 0 0 16px 0; font-size: 18px;">الموديل المختار</h3>
+            ${imageHtml}
+            <p style="font-size: 20px; font-weight: bold; color: #92400e; margin: 16px 0 4px 0;">${watchName}</p>
+            <p style="font-size: 14px; color: #78716c; margin: 0;">السعر: ${orderData.boxPrice.toLocaleString()} دج</p>
           </div>
 
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-            <tr style="background: #f5f5f5;">
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold; width: 40%;">الاسم:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.fullName}</td>
+          <!-- Order Details Table -->
+          <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e7e5e4;">
+            <tr style="background: #fef3c7;">
+              <td style="padding: 14px 16px; font-weight: bold; width: 35%; color: #78716c; font-size: 14px;">الاسم</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917;">${orderData.fullName}</td>
             </tr>
             <tr>
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">الهاتف:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.phone}</td>
+              <td style="padding: 14px 16px; font-weight: bold; color: #78716c; font-size: 14px; border-top: 1px solid #f5f5f4;">الهاتف</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917; border-top: 1px solid #f5f5f4;">${orderData.phone}</td>
             </tr>
-            <tr style="background: #f5f5f5;">
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">الولاية:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.wilaya}</td>
-            </tr>
-            <tr>
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">البلدية:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.baladiya}</td>
-            </tr>
-            <tr style="background: #f5f5f5;">
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">التوصيل:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${deliveryLabel}</td>
+            <tr style="background: #fef3c7;">
+              <td style="padding: 14px 16px; font-weight: bold; color: #78716c; font-size: 14px;">الولاية</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917;">${orderData.wilaya}</td>
             </tr>
             <tr>
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">سعر الطقم:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.boxPrice.toLocaleString()} دج</td>
+              <td style="padding: 14px 16px; font-weight: bold; color: #78716c; font-size: 14px; border-top: 1px solid #f5f5f4;">البلدية</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917; border-top: 1px solid #f5f5f4;">${orderData.baladiya}</td>
             </tr>
-            <tr style="background: #f5f5f5;">
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">التوصيل:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.deliveryCost.toLocaleString()} دج</td>
-            </tr>
-            <tr style="background: #b45309; color: white;">
-              <td style="padding: 15px; border: 1px solid #ddd; font-weight: bold; font-size: 16px;">المجموع الكلي:</td>
-              <td style="padding: 15px; border: 1px solid #ddd; font-weight: bold; font-size: 18px;">${orderData.total.toLocaleString()} دج</td>
+            <tr style="background: #fef3c7;">
+              <td style="padding: 14px 16px; font-weight: bold; color: #78716c; font-size: 14px;">التوصيل</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917;">${deliveryLabel}</td>
             </tr>
             ${
               orderData.notes
                 ? `
             <tr>
-              <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">ملاحظات:</td>
-              <td style="padding: 12px; border: 1px solid #ddd;">${orderData.notes}</td>
+              <td style="padding: 14px 16px; font-weight: bold; color: #78716c; font-size: 14px; border-top: 1px solid #f5f5f4;">ملاحظات</td>
+              <td style="padding: 14px 16px; font-size: 15px; color: #1c1917; border-top: 1px solid #f5f5f4;">${orderData.notes}</td>
             </tr>
             `
                 : ""
             }
           </table>
+
+          <!-- Price Summary -->
+          <div style="margin-top: 20px; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e7e5e4;">
+            <div style="padding: 14px 16px; display: flex; justify-content: space-between; border-bottom: 1px solid #f5f5f4;">
+              <span style="color: #78716c;">سعر الطقم</span>
+              <span style="color: #1c1917; font-weight: 600;">${orderData.boxPrice.toLocaleString()} دج</span>
+            </div>
+            <div style="padding: 14px 16px; display: flex; justify-content: space-between; border-bottom: 1px solid #f5f5f4;">
+              <span style="color: #78716c;">التوصيل</span>
+              <span style="color: #1c1917; font-weight: 600;">${orderData.deliveryCost.toLocaleString()} دج</span>
+            </div>
+            <div style="padding: 16px; display: flex; justify-content: space-between; background: linear-gradient(135deg, #92400e, #b45309); color: white;">
+              <span style="font-weight: bold; font-size: 16px;">المجموع الكلي</span>
+              <span style="font-weight: bold; font-size: 20px;">${orderData.total.toLocaleString()} دج</span>
+            </div>
+          </div>
         </div>
         
-        <div style="background: #f5f5f5; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; font-size: 12px; color: #666;">
+        <!-- Footer -->
+        <div style="background: #f5f5f4; padding: 16px; text-align: center; font-size: 12px; color: #a8a29e;">
           تم استلام هذا الطلب من المتجر الإلكتروني
         </div>
       </div>
@@ -288,7 +345,10 @@ export async function POST(
       );
     }
 
-    if (!orderData.deliveryOption || !["home", "desk"].includes(orderData.deliveryOption)) {
+    if (
+      !orderData.deliveryOption ||
+      !["home", "desk"].includes(orderData.deliveryOption)
+    ) {
       return NextResponse.json(
         { success: false, error: "يرجى اختيار طريقة التوصيل" },
         { status: 400 },
@@ -298,15 +358,12 @@ export async function POST(
     processedIds.add(orderData.clientRequestId);
 
     let rowNumber = 0;
-    let sheetError = null;
-    let emailError = null;
 
     // Try to save to Google Sheets
     try {
       rowNumber = await appendToSheet(orderData);
       console.log("✅ Order saved to sheet, row:", rowNumber);
     } catch (error) {
-      sheetError = error;
       console.error("❌ Failed to save to sheet:", error);
     }
 
@@ -315,7 +372,6 @@ export async function POST(
       await sendEmailNotification(orderData);
       console.log("✅ Email sent to:", process.env.ORDER_NOTIFICATION_EMAIL);
     } catch (error) {
-      emailError = error;
       console.error("❌ Failed to send email:", error);
     }
 
@@ -340,5 +396,8 @@ export async function POST(
 
 // Simple test endpoint
 export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({ status: "API is working", timestamp: new Date().toISOString() });
+  return NextResponse.json({
+    status: "API is working",
+    timestamp: new Date().toISOString(),
+  });
 }

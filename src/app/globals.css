@@ -6,8 +6,8 @@
   --background: #ffffff;
   --foreground: #171717;
   /* Brand gradient stops for CTA (optional reference) */
-  --brand-from: #2563eb; /* blue-600 */
-  --brand-to: #06b6d4;   /* cyan-400 */
+  --brand-from: #b45309; /* amber-700 */
+  --brand-to: #dc2626; /* red-600 */
 }
 
 /* Theme tokens can be mapped directly via CSS variables without @theme to avoid tooling warnings */
@@ -31,8 +31,18 @@ body {
   background: var(--background);
   color: var(--foreground);
   /* Use Geist from next/font via CSS var with sensible fallbacks */
-  font-family: var(--font-arabic), var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
-    Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family:
+    var(--font-arabic),
+    var(--font-geist-sans),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    "Apple Color Emoji",
+    "Segoe UI Emoji";
 }
 
 /* Better selection highlight */
@@ -41,7 +51,10 @@ body {
 }
 
 /* Media elements scale nicely */
-img, svg, video, canvas {
+img,
+svg,
+video,
+canvas {
   display: block;
   max-width: 100%;
 }
