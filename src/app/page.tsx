@@ -62,6 +62,15 @@ const WATCHES: WatchItem[] = [
   { id: "model-12", name: "موديل 12", image: "/images/watches/12.webp" },
   { id: "model-13", name: "موديل 13", image: "/images/watches/13.webp" },
   { id: "model-14", name: "موديل 14", image: "/images/watches/14.webp" },
+  { id: "model-15", name: "موديل 15", image: "/images/watches/15.webp" },
+  { id: "model-16", name: "موديل 16", image: "/images/watches/16.webp" },
+  { id: "model-17", name: "موديل 17", image: "/images/watches/17.webp" },
+  { id: "model-18", name: "موديل 18", image: "/images/watches/18.webp" },
+  { id: "model-19", name: "موديل 19", image: "/images/watches/19.webp" },
+  { id: "model-20", name: "موديل 20", image: "/images/watches/20.webp" },
+  { id: "model-21", name: "موديل 21", image: "/images/watches/21.webp" },
+  { id: "model-22", name: "موديل 22", image: "/images/watches/22.webp" },
+  { id: "model-23", name: "موديل 23", image: "/images/watches/23.webp" },
 ];
 
 const DELIVERY_COST: Record<DeliveryOption, number> = {
@@ -429,7 +438,7 @@ export default function Page() {
               </div>
 
               <p className="text-gray-600 text-base md:text-lg leading-relaxed max-w-md">
-                14 موديل حصري بتصميم عصري. كل ساعة تأتي مع طقم إكسسوارات كامل
+                23 موديل حصري بتصميم عصري. كل ساعة تأتي مع طقم إكسسوارات كامل
                 وتوصيل لجميع الولايات.
               </p>
 
