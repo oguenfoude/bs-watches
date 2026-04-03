@@ -3,17 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #fafaf9; /* stone-50 */
-  --foreground: #1c1917; /* stone-900 */
-  --brand-from: #92400e; /* amber-800 */
-  --brand-to: #b45309;   /* amber-700 */
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #fafaf9;
-    --foreground: #1c1917;
-  }
+  --background: #ffffff;
+  --foreground: #111827;
 }
 
 html {
@@ -32,8 +23,8 @@ body {
 }
 
 ::selection {
-  background: #fde68a; /* amber-200 */
-  color: #1c1917;
+  background: #fde68a;
+  color: #111827;
 }
 
 img, svg, video, canvas {
@@ -41,14 +32,12 @@ img, svg, video, canvas {
   max-width: 100%;
 }
 
-/* Smooth focus transitions */
 input, select, textarea, button {
-  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Remove default select arrow for custom styling */
 select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378716c' d='M6 8.825a.5.5 0 0 1-.354-.146l-3.5-3.5a.5.5 0 1 1 .708-.708L6 7.618l3.146-3.147a.5.5 0 0 1 .708.708l-3.5 3.5A.5.5 0 0 1 6 8.825Z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8.825a.5.5 0 0 1-.354-.146l-3.5-3.5a.5.5 0 1 1 .708-.708L6 7.618l3.146-3.147a.5.5 0 0 1 .708.708l-3.5 3.5A.5.5 0 0 1 6 8.825Z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: left 1rem center;
   background-size: 12px;

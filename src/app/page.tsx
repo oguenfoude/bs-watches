@@ -16,13 +16,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Package,
   Gift,
-  Star,
   Eye,
   Truck,
   Clock,
-  Award,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -47,12 +44,8 @@ interface WatchItem {
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
-const BOX_PRICE = 2000;
-
-const BOX_IMAGES = [
-  { src: "/images/box/box.webp", alt: "طقم الساعة الفاخر — العرض الأول" },
-  { src: "/images/box/box02.webp", alt: "طقم الساعة الفاخر — العرض الثاني" },
-];
+const WATCH_PRICE = 1500;
+const OLD_PRICE = 2000;
 
 const WATCHES: WatchItem[] = [
   { id: "model-1", name: "موديل 1", image: "/images/watches/1.webp" },
@@ -147,7 +140,7 @@ function formatDZD(v: number): string {
 }
 
 // ─────────────────────────────────────────────
-// SMART VALIDATION (Algerian Format)
+// VALIDATION
 // ─────────────────────────────────────────────
 interface ValidationErrors {
   fullName?: string;
@@ -199,11 +192,8 @@ export default function Page() {
     initMetaPixel();
   }, []);
 
-  // State
   const [selectedWatchId, setSelectedWatchId] = useState<string | null>(null);
-  const [deliveryOption, setDeliveryOption] = useState<DeliveryOption | null>(
-    null,
-  );
+  const [deliveryOption, setDeliveryOption] = useState<DeliveryOption | null>(null);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     phone: "",
@@ -218,11 +208,10 @@ export default function Page() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
 
-  // Auto-rotate hero images
   useEffect(() => {
     const timer = setInterval(
-      () => setHeroIdx((p) => (p + 1) % BOX_IMAGES.length),
-      4000,
+      () => setHeroIdx((p) => (p + 1) % WATCHES.length),
+      3500,
     );
     return () => clearInterval(timer);
   }, []);
@@ -233,12 +222,11 @@ export default function Page() {
   );
 
   const total = useMemo(() => {
-    let price = BOX_PRICE;
+    let price = WATCH_PRICE;
     if (deliveryOption) price += DELIVERY_COST[deliveryOption];
     return price;
   }, [deliveryOption]);
 
-  // Handlers
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
@@ -247,7 +235,7 @@ export default function Page() {
       content_type: "product",
       content_ids: [WATCHES[index].id],
       content_name: WATCHES[index].name,
-      value: BOX_PRICE,
+      value: WATCH_PRICE,
       currency: "DZD",
     });
   }, []);
@@ -267,7 +255,7 @@ export default function Page() {
     trackFb("AddToCart", {
       content_type: "product",
       content_ids: [watchId],
-      value: BOX_PRICE,
+      value: WATCH_PRICE,
       currency: "DZD",
     });
   };
@@ -279,11 +267,7 @@ export default function Page() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationErrors = validateForm(
-      formData,
-      selectedWatchId,
-      deliveryOption,
-    );
+    const validationErrors = validateForm(formData, selectedWatchId, deliveryOption);
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
@@ -303,7 +287,7 @@ export default function Page() {
         baladiya: formData.baladiya.trim(),
         selectedWatchId: selectedWatchId!,
         selectedWatchName: selectedWatch?.name || selectedWatchId!,
-        boxPrice: BOX_PRICE,
+        boxPrice: WATCH_PRICE,
         deliveryOption: deliveryOption!,
         deliveryCost: DELIVERY_COST[deliveryOption!],
         total,
@@ -340,60 +324,52 @@ export default function Page() {
     }
   };
 
-  // ─── Shared styles ───
-  const inputBase =
-    "w-full rounded-xl border px-4 py-3.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 bg-white";
-  const inputOk = `${inputBase} border-stone-200 focus:border-amber-600 focus:ring-amber-600/10`;
-  const inputErr = `${inputBase} border-red-300 focus:border-red-500 focus:ring-red-500/10 bg-red-50/40`;
+  const inputStyle = (hasError: boolean) =>
+    `w-full rounded-xl border px-4 py-3 text-sm transition-all duration-200 focus:outline-none focus:ring-2 ${
+      hasError
+        ? "border-red-300 bg-red-50/30 focus:ring-red-200 focus:border-red-400"
+        : "border-gray-200 bg-white focus:ring-amber-100 focus:border-amber-400 hover:border-gray-300"
+    }`;
 
   // ═════════════════════════════════════════════
   // RENDER
   // ═════════════════════════════════════════════
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-stone-50 text-stone-800 selection:bg-amber-200/60"
-    >
+    <div dir="rtl" className="min-h-screen bg-white text-gray-900">
+
       {/* ── HEADER ── */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-stone-200/60 sticky top-0 z-40">
-        <div className="mx-auto max-w-6xl px-4 py-3.5">
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
+        <div className="mx-auto max-w-6xl px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center shadow-lg shadow-amber-900/20">
-                <Package className="w-5 h-5 text-amber-100" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">BS</span>
               </div>
-              <div>
-                <h1 className="font-bold text-base text-stone-900 tracking-tight">
-                  BS Monters
-                </h1>
-                <p className="text-[11px] text-amber-700 font-medium tracking-wide">
-                  أناقة بلا حدود
-                </p>
-              </div>
+              <span className="font-bold text-gray-900">BS Monters</span>
             </div>
-            <div className="text-left">
-              <p className="text-[10px] uppercase tracking-widest text-stone-400 font-medium">
-                السعر الكامل
-              </p>
-              <p className="text-xl font-bold text-stone-900">
-                {formatDZD(BOX_PRICE)}
-              </p>
-            </div>
+            <a
+              href="#order"
+              className="hidden sm:inline-flex items-center gap-2 px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              onClick={() => trackFb("InitiateCheckout")}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              اطلب الآن
+            </a>
           </div>
         </div>
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-50/80 via-white to-stone-50" />
-        <div className="relative mx-auto max-w-6xl px-4 py-14 md:py-24">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Product Image Carousel */}
+      <section className="bg-gray-50">
+        <div className="mx-auto max-w-6xl px-4 py-12 md:py-20">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+
+            {/* Image */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="relative aspect-square rounded-[2rem] overflow-hidden shadow-2xl shadow-stone-900/10 ring-1 ring-stone-200/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="relative aspect-square rounded-2xl overflow-hidden bg-white shadow-lg"
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -401,12 +377,12 @@ export default function Page() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6 }}
+                  transition={{ duration: 0.5 }}
                   className="absolute inset-0"
                 >
                   <Image
-                    src={BOX_IMAGES[heroIdx].src}
-                    alt={BOX_IMAGES[heroIdx].alt}
+                    src={WATCHES[heroIdx].image}
+                    alt={WATCHES[heroIdx].name}
                     fill
                     priority
                     className="object-cover"
@@ -414,177 +390,131 @@ export default function Page() {
                   />
                 </motion.div>
               </AnimatePresence>
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-900/50 via-transparent to-transparent" />
-              <div className="absolute top-5 right-5">
-                <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-full shadow-lg">
-                  عرض محدود
+
+              {/* Price badge */}
+              <div className="absolute top-4 right-4">
+                <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                  خصم {Math.round(((OLD_PRICE - WATCH_PRICE) / OLD_PRICE) * 100)}%
                 </span>
               </div>
-              <div className="absolute bottom-6 left-6 right-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-full text-xs font-medium text-stone-700 shadow-sm">
-                      <Gift className="w-3.5 h-3.5 text-amber-700" />
-                      علبة هدية فاخرة
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-full text-xs font-medium text-stone-700 shadow-sm">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      ضمان سنة كاملة
-                    </span>
-                  </div>
-                  {/* Dot nav */}
-                  <div className="flex items-center gap-1.5">
-                    {BOX_IMAGES.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setHeroIdx(i)}
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          i === heroIdx ? "bg-white w-5" : "bg-white/40 w-2"
-                        }`}
-                      />
-                    ))}
-                  </div>
+
+              {/* Model name */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    {WATCHES[heroIdx].name}
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {formatDZD(WATCH_PRICE)}
+                  </span>
                 </div>
               </div>
             </motion.div>
 
-            {/* Content */}
+            {/* Text */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="space-y-7"
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="space-y-6"
             >
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-amber-700 mb-3">
+                <p className="text-amber-600 text-sm font-semibold mb-3">
                   الأكثر مبيعاً في الجزائر
                 </p>
-                <h1 className="text-4xl md:text-5xl font-bold text-stone-900 leading-[1.15] tracking-tight">
-                  طقم ساعة أنيق
-                  <span className="block text-transparent bg-clip-text bg-gradient-to-l from-amber-600 to-amber-800 text-3xl md:text-4xl mt-2">
-                    مع علبة هدية فاخرة
-                  </span>
+                <h1 className="text-3xl md:text-5xl font-bold text-gray-900 leading-tight">
+                  ساعات أنيقة بسعر
+                  <span className="text-amber-600"> استثنائي</span>
                 </h1>
               </div>
 
-              <p className="text-base md:text-lg text-stone-600 leading-relaxed max-w-lg">
-                طقم كامل يشمل ساعة أنيقة مع علبة هدية فاخرة وإكسسوارات متنوعة.
-                اختر من 14 موديلاً حصرياً واستلم طلبك حتى باب بيتك.
+              <p className="text-gray-600 text-base md:text-lg leading-relaxed max-w-md">
+                14 موديل حصري بتصميم عصري. كل ساعة تأتي مع طقم إكسسوارات كامل
+                وتوصيل لجميع الولايات.
               </p>
 
-              {/* Price Card */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg shadow-stone-900/5 ring-1 ring-stone-200/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-stone-500 uppercase tracking-wide font-medium">
-                      السعر شامل كل شيء
-                    </p>
-                    <p className="text-4xl font-bold text-stone-900 mt-1">
-                      {formatDZD(BOX_PRICE)}
-                    </p>
-                    <p className="text-sm text-emerald-600 font-medium mt-1.5 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      الساعة + العلبة + الإكسسوارات
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center shadow-lg shadow-amber-800/20">
-                      <Star className="w-7 h-7 text-amber-100" />
-                    </div>
-                    <p className="text-[10px] text-stone-400 mt-1.5 font-medium">
-                      14 موديل
-                    </p>
-                  </div>
-                </div>
+              {/* Price */}
+              <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-bold text-gray-900">
+                  {formatDZD(WATCH_PRICE)}
+                </span>
+                <span className="text-lg text-gray-400 line-through">
+                  {formatDZD(OLD_PRICE)}
+                </span>
               </div>
 
-              {/* Trust Signals */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Features */}
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
                 {[
-                  { icon: Award, text: "14 موديل حصري" },
-                  { icon: Gift, text: "علبة هدية فاخرة" },
+                  { icon: Gift, text: "طقم إكسسوارات مجاني" },
                   { icon: ShieldCheck, text: "ضمان سنة كاملة" },
                   { icon: Truck, text: "الدفع عند الاستلام" },
                 ].map(({ icon: Icon, text }) => (
-                  <div
-                    key={text}
-                    className="flex items-center gap-2.5 text-sm text-stone-600"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-4 h-4 text-amber-700" />
-                    </div>
-                    <span>{text}</span>
-                  </div>
+                  <span key={text} className="flex items-center gap-1.5">
+                    <Icon className="w-4 h-4 text-amber-600" />
+                    {text}
+                  </span>
                 ))}
               </div>
 
               <a
                 href="#order"
-                className="group inline-flex items-center justify-center gap-2.5 w-full md:w-auto px-10 py-4 bg-gradient-to-l from-stone-900 to-stone-800 text-white font-bold rounded-xl transition-all shadow-xl shadow-stone-900/15 hover:shadow-stone-900/25 hover:from-stone-800 hover:to-stone-700 active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors text-base"
                 onClick={() => trackFb("InitiateCheckout")}
               >
-                <ShoppingCart className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
-                اطلب الآن — {formatDZD(BOX_PRICE)}
+                <ShoppingCart className="w-5 h-5" />
+                اطلب الآن — {formatDZD(WATCH_PRICE)}
               </a>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ── MODELS GALLERY ── */}
-      <section id="models" className="py-16 md:py-20 bg-white">
+      {/* ── GALLERY ── */}
+      <section id="models" className="py-14 md:py-20">
         <div className="mx-auto max-w-7xl px-4">
-          <div className="text-center mb-14">
-            <p className="text-xs font-semibold uppercase tracking-widest text-amber-700 mb-3">
-              تشكيلة حصرية
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">
-              أي موديل يناسب ذوقك؟
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+              اختر الموديل المفضل لديك
             </h2>
-            <p className="text-stone-500 mt-3 max-w-xl mx-auto">
-              جميع الموديلات بنفس السعر — اضغط على أي صورة لمشاهدتها بالتفصيل
+            <p className="text-gray-500 mt-2 text-sm">
+              اضغط على أي صورة لمشاهدتها بالتفصيل
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {WATCHES.map((watch, index) => (
               <motion.div
                 key={watch.id}
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ delay: index * 0.04, duration: 0.4 }}
-                className="group relative bg-stone-50 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl ring-1 ring-stone-200/60 hover:ring-amber-300/60 transition-all duration-300 cursor-pointer"
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ delay: index * 0.03, duration: 0.35 }}
+                className="group relative rounded-xl overflow-hidden bg-gray-50 cursor-pointer border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all duration-200"
                 onClick={() => openLightbox(index)}
               >
-                <div className="aspect-[4/5] relative">
+                <div className="aspect-[4/5] relative overflow-hidden">
                   <Image
                     src={watch.image}
                     alt={watch.name}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                     loading={index < 5 ? "eager" : "lazy"}
                   />
-                  <div className="absolute top-3 right-3">
-                    <span className="inline-flex items-center justify-center w-7 h-7 bg-stone-900/80 backdrop-blur text-white rounded-full text-xs font-bold">
+                  <div className="absolute top-2 right-2">
+                    <span className="w-6 h-6 bg-gray-900/60 text-white rounded-md text-[10px] font-bold flex items-center justify-center">
                       {index + 1}
                     </span>
                   </div>
-                  {/* Hover */}
-                  <div className="absolute inset-0 bg-stone-900/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <span className="text-white font-medium flex items-center gap-2 text-sm">
-                      <Eye className="w-4 h-4" />
-                      عرض بالتفصيل
-                    </span>
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <Eye className="w-5 h-5 text-white" />
                   </div>
                 </div>
-                <div className="p-3 text-center">
-                  <p className="font-semibold text-stone-800 text-sm">
-                    {watch.name}
-                  </p>
-                  <p className="text-amber-700 text-xs mt-0.5 font-medium">
-                    {formatDZD(BOX_PRICE)}
+                <div className="p-2.5 text-center">
+                  <p className="font-medium text-gray-800 text-sm">{watch.name}</p>
+                  <p className="text-amber-600 text-xs font-semibold mt-0.5">
+                    {formatDZD(WATCH_PRICE)}
                   </p>
                 </div>
               </motion.div>
@@ -594,166 +524,128 @@ export default function Page() {
       </section>
 
       {/* ── ORDER FORM ── */}
-      <section id="order" className="py-16 md:py-20 bg-stone-50">
-        <div className="mx-auto max-w-2xl px-4">
+      <section id="order" className="py-14 md:py-20 bg-gray-50">
+        <div className="mx-auto max-w-xl px-4">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="bg-white rounded-[2rem] shadow-xl shadow-stone-900/5 ring-1 ring-stone-200/60 p-7 md:p-10"
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8"
           >
-            <div className="text-center mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">
-                أكمل طلبك في ثوانٍ
+            <div className="text-center mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                أكمل طلبك
               </h2>
-              <p className="text-stone-500 mt-2 text-sm">
-                اختر الموديل واملأ بياناتك — سنتصل بك لتأكيد الطلب وترتيب
-                التوصيل
+              <p className="text-gray-500 mt-1 text-sm">
+                سنتصل بك لتأكيد الطلب وترتيب التوصيل
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* ── Model Selection ── */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Model Selection */}
               <div
-                className={`rounded-2xl p-5 transition-all ${
+                className={`rounded-xl p-4 transition-colors ${
                   errors.watch
-                    ? "bg-red-50/60 ring-2 ring-red-300"
+                    ? "bg-red-50 border border-red-200"
                     : selectedWatch
-                      ? "bg-emerald-50/50 ring-2 ring-emerald-300"
-                      : "bg-stone-50 ring-1 ring-stone-200"
+                      ? "bg-emerald-50 border border-emerald-200"
+                      : "bg-gray-50 border border-gray-100"
                 }`}
                 data-error={errors.watch ? "true" : undefined}
               >
-                <label className="block text-sm font-bold text-stone-800 mb-2.5">
-                  اختر موديل الساعة
+                <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  موديل الساعة
                 </label>
-
                 <select
                   value={selectedWatchId || ""}
                   onChange={(e) => handleWatchSelect(e.target.value)}
-                  className={`w-full rounded-xl border-2 px-4 py-3 text-sm focus:outline-none focus:ring-2 appearance-none bg-white cursor-pointer ${
-                    errors.watch
-                      ? "border-red-300 focus:border-red-500 focus:ring-red-500/10"
-                      : "border-stone-200 focus:border-amber-600 focus:ring-amber-600/10"
-                  }`}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 appearance-none cursor-pointer"
                 >
-                  <option value="">— اختر الموديل الذي أعجبك —</option>
+                  <option value="">— اختر الموديل —</option>
                   {WATCHES.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
+                    <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
                 </select>
 
                 {errors.watch && (
-                  <p className="text-red-600 text-sm mt-2 font-medium">
-                    {errors.watch}
-                  </p>
+                  <p className="text-red-500 text-xs mt-1.5">{errors.watch}</p>
                 )}
 
-                {/* Preview */}
                 <AnimatePresence>
                   {selectedWatch && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mt-4 pt-4 border-t border-stone-200/60"
+                      className="mt-3 pt-3 border-t border-gray-200/60"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-emerald-200 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-emerald-200">
                           <Image
                             src={selectedWatch.image}
                             alt={selectedWatch.name}
                             fill
                             className="object-cover"
-                            sizes="80px"
+                            sizes="56px"
                           />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-stone-900">
-                            {selectedWatch.name}
-                          </p>
-                          <p className="text-emerald-600 text-sm font-medium mt-0.5">
-                            تم اختيار هذا الموديل
-                          </p>
-                          <p className="text-stone-900 font-bold mt-0.5">
-                            {formatDZD(BOX_PRICE)}
-                          </p>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 text-sm">{selectedWatch.name}</p>
+                          <p className="text-emerald-600 text-xs">{formatDZD(WATCH_PRICE)}</p>
                         </div>
-                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                        </div>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* ── Personal Info ── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Personal Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div data-error={errors.fullName ? "true" : undefined}>
-                  <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                    الاسم الكامل
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الاسم الكامل</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={formData.fullName}
                       onChange={(e) => {
-                        setFormData((f) => ({
-                          ...f,
-                          fullName: e.target.value,
-                        }));
+                        setFormData((f) => ({ ...f, fullName: e.target.value }));
                         setErrors((p) => ({ ...p, fullName: undefined }));
                       }}
-                      placeholder="مثال: أحمد بوعلام"
-                      className={errors.fullName ? inputErr : inputOk}
+                      placeholder="أحمد بوعلام"
+                      className={inputStyle(!!errors.fullName)}
                     />
-                    <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
-                  {errors.fullName && (
-                    <p className="text-red-600 text-xs mt-1.5 font-medium">
-                      {errors.fullName}
-                    </p>
-                  )}
+                  {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
                 </div>
 
                 <div data-error={errors.phone ? "true" : undefined}>
-                  <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                    رقم الهاتف
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
                   <div className="relative">
                     <input
                       type="tel"
                       value={formData.phone}
                       maxLength={10}
                       onChange={(e) => {
-                        const val = e.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, 10);
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                         setFormData((f) => ({ ...f, phone: val }));
                         setErrors((p) => ({ ...p, phone: undefined }));
                       }}
                       placeholder="0555123456"
-                      className={errors.phone ? inputErr : inputOk}
+                      className={inputStyle(!!errors.phone)}
                     />
-                    <Phone className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
-                  {errors.phone && (
-                    <p className="text-red-600 text-xs mt-1.5 font-medium">
-                      {errors.phone}
-                    </p>
-                  )}
+                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                 </div>
               </div>
 
-              {/* ── Location ── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Location */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div data-error={errors.wilaya ? "true" : undefined}>
-                  <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                    الولاية
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الولاية</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -762,195 +654,128 @@ export default function Page() {
                         setFormData((f) => ({ ...f, wilaya: e.target.value }));
                         setErrors((p) => ({ ...p, wilaya: undefined }));
                       }}
-                      placeholder="مثال: الجزائر العاصمة"
-                      className={errors.wilaya ? inputErr : inputOk}
+                      placeholder="الجزائر العاصمة"
+                      className={inputStyle(!!errors.wilaya)}
                     />
-                    <MapPin className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
-                  {errors.wilaya && (
-                    <p className="text-red-600 text-xs mt-1.5 font-medium">
-                      {errors.wilaya}
-                    </p>
-                  )}
+                  {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
                 </div>
 
                 <div data-error={errors.baladiya ? "true" : undefined}>
-                  <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                    البلدية
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">البلدية</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={formData.baladiya}
                       onChange={(e) => {
-                        setFormData((f) => ({
-                          ...f,
-                          baladiya: e.target.value,
-                        }));
+                        setFormData((f) => ({ ...f, baladiya: e.target.value }));
                         setErrors((p) => ({ ...p, baladiya: undefined }));
                       }}
-                      placeholder="مثال: باب الزوار"
-                      className={errors.baladiya ? inputErr : inputOk}
+                      placeholder="باب الزوار"
+                      className={inputStyle(!!errors.baladiya)}
                     />
-                    <Building2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
-                  {errors.baladiya && (
-                    <p className="text-red-600 text-xs mt-1.5 font-medium">
-                      {errors.baladiya}
-                    </p>
-                  )}
+                  {errors.baladiya && <p className="text-red-500 text-xs mt-1">{errors.baladiya}</p>}
                 </div>
               </div>
 
-              {/* ── Delivery ── */}
+              {/* Delivery */}
               <div data-error={errors.delivery ? "true" : undefined}>
-                <label className="block text-sm font-semibold text-stone-700 mb-2.5">
-                  طريقة التوصيل
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">طريقة التوصيل</label>
+                <div className="grid grid-cols-2 gap-3">
                   {[
-                    {
-                      key: "desk" as DeliveryOption,
-                      icon: Building2,
-                      label: "توصيل للمكتب",
-                      desc: "استلام من مكتب التوصيل",
-                      cost: DELIVERY_COST.desk,
-                    },
-                    {
-                      key: "home" as DeliveryOption,
-                      icon: Home,
-                      label: "توصيل للمنزل",
-                      desc: "توصيل حتى باب بيتك",
-                      cost: DELIVERY_COST.home,
-                    },
-                  ].map(({ key, icon: Icon, label, desc, cost }) => (
+                    { key: "desk" as DeliveryOption, icon: Building2, label: "للمكتب", cost: DELIVERY_COST.desk },
+                    { key: "home" as DeliveryOption, icon: Home, label: "للمنزل", cost: DELIVERY_COST.home },
+                  ].map(({ key, icon: Icon, label, cost }) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => handleDeliverySelect(key)}
-                      className={`relative flex items-center gap-3.5 p-4 rounded-xl border-2 transition-all text-right ${
+                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 transition-all text-center ${
                         deliveryOption === key
-                          ? "border-amber-600 bg-amber-50/60 shadow-sm"
-                          : "border-stone-200 hover:border-stone-300 bg-white"
+                          ? "border-amber-400 bg-amber-50"
+                          : "border-gray-200 bg-white hover:border-gray-300"
                       }`}
                     >
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                          deliveryOption === key
-                            ? "border-amber-600"
-                            : "border-stone-300"
-                        }`}
-                      >
-                        {deliveryOption === key && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-amber-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-amber-700" />
-                          <span className="font-bold text-stone-800 text-sm">
-                            {label}
-                          </span>
-                        </div>
-                        <p className="text-xs text-stone-500 mt-0.5">{desc}</p>
-                        <p className="text-sm font-bold text-stone-900 mt-1.5">
-                          {formatDZD(cost)}
-                        </p>
-                      </div>
+                      <Icon className={`w-5 h-5 ${deliveryOption === key ? "text-amber-600" : "text-gray-400"}`} />
+                      <span className="font-semibold text-gray-800 text-sm">{label}</span>
+                      <span className="text-xs text-gray-500">{formatDZD(cost)}</span>
                     </button>
                   ))}
                 </div>
-                {errors.delivery && (
-                  <p className="text-red-600 text-sm mt-2 font-medium">
-                    {errors.delivery}
-                  </p>
-                )}
+                {errors.delivery && <p className="text-red-500 text-xs mt-1.5">{errors.delivery}</p>}
               </div>
 
-              {/* ── Notes ── */}
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-semibold text-stone-700 mb-1.5">
-                  ملاحظات (اختياري)
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span>
                 </label>
                 <textarea
                   value={formData.notes || ""}
-                  onChange={(e) =>
-                    setFormData((f) => ({ ...f, notes: e.target.value }))
-                  }
-                  rows={3}
+                  onChange={(e) => setFormData((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
                   placeholder="عنوان تفصيلي أو رقم هاتف إضافي..."
-                  className="w-full rounded-xl border border-stone-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600/10 focus:border-amber-600 resize-none bg-white"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 resize-none bg-white hover:border-gray-300 transition-all duration-200"
                 />
               </div>
 
-              {/* ── Price Summary + Submit ── */}
-              <div className="pt-5 border-t border-stone-200/60">
-                <div className="bg-stone-50 rounded-xl p-4 mb-5 ring-1 ring-stone-200/60">
-                  <div className="flex items-center justify-between py-1.5">
-                    <div>
-                      <p className="text-stone-700 text-sm">
-                        ساعة + علبة + إكسسوارات
-                      </p>
-                      <p className="text-xs text-stone-400">
-                        {selectedWatch ? selectedWatch.name : "لم يتم الاختيار"}
-                      </p>
-                    </div>
-                    <p className="font-semibold text-stone-800 text-sm">
-                      {formatDZD(BOX_PRICE)}
-                    </p>
+              {/* Summary + Submit */}
+              <div className="pt-4 border-t border-gray-100">
+                <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      الساعة {selectedWatch ? `(${selectedWatch.name})` : ""}
+                    </span>
+                    <span className="font-medium text-gray-800">{formatDZD(WATCH_PRICE)}</span>
                   </div>
-
                   {deliveryOption && (
-                    <div className="flex items-center justify-between py-1.5 border-t border-stone-200/60 mt-1.5 pt-2">
-                      <p className="text-stone-700 text-sm">
-                        {deliveryOption === "desk"
-                          ? "توصيل للمكتب"
-                          : "توصيل للمنزل"}
-                      </p>
-                      <p className="font-semibold text-stone-800 text-sm">
-                        + {formatDZD(DELIVERY_COST[deliveryOption])}
-                      </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        التوصيل {deliveryOption === "home" ? "للمنزل" : "للمكتب"}
+                      </span>
+                      <span className="font-medium text-gray-800">
+                        {formatDZD(DELIVERY_COST[deliveryOption])}
+                      </span>
                     </div>
                   )}
-
-                  <div className="flex items-center justify-between pt-3 mt-2 border-t-2 border-amber-300/60">
-                    <p className="font-bold text-stone-900">المجموع الكلي</p>
-                    <p className="text-2xl font-bold text-stone-900">
-                      {formatDZD(total)}
-                    </p>
+                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                    <span className="font-bold text-gray-900">المجموع</span>
+                    <span className="font-bold text-lg text-gray-900">{formatDZD(total)}</span>
                   </div>
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="group w-full bg-gradient-to-l from-stone-900 to-stone-800 hover:from-stone-800 hover:to-stone-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-stone-900/10 active:scale-[0.98]"
+                  className="w-full bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      جاري إرسال الطلب...
+                      جاري الإرسال...
                     </>
                   ) : (
                     <>
-                      <ShoppingCart className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
-                      أرسل الطلب الآن — {formatDZD(total)}
+                      <ShoppingCart className="w-5 h-5" />
+                      تأكيد الطلب — {formatDZD(total)}
                     </>
                   )}
                 </button>
 
-                {/* Trust line */}
-                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-stone-400">
+                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-400">
                   <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> معاملة آمنة
+                    <ShieldCheck className="w-3.5 h-3.5" /> آمن 100%
                   </span>
                   <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> توصيل 24-48 ساعة
+                    <Clock className="w-3.5 h-3.5" /> توصيل 24-48h
                   </span>
                 </div>
 
                 {submitError && (
-                  <div className="mt-4 bg-red-50 ring-1 ring-red-200 rounded-xl p-4 text-red-700 text-sm text-center">
+                  <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm text-center">
                     {submitError}
                   </div>
                 )}
@@ -967,43 +792,37 @@ export default function Page() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-stone-900/95 backdrop-blur-sm z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
             onClick={closeLightbox}
           >
             <button
               onClick={closeLightbox}
-              className="absolute top-5 left-5 z-10 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+              className="absolute top-4 left-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                prevImage();
-              }}
-              className="absolute right-3 md:right-8 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
 
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                nextImage();
-              }}
-              className="absolute left-3 md:left-8 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
 
             <motion.div
               key={lightboxIndex}
-              initial={{ opacity: 0, scale: 0.92 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-3xl mx-4 aspect-[3/4] max-h-[80vh]"
+              className="relative w-full max-w-2xl mx-4 aspect-[3/4] max-h-[80vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -1011,34 +830,23 @@ export default function Page() {
                 alt={WATCHES[lightboxIndex].name}
                 fill
                 className="object-contain"
-                sizes="(max-width: 1024px) 100vw, 768px"
+                sizes="(max-width: 1024px) 100vw, 672px"
                 priority
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-stone-900/80 to-transparent p-8">
-                <p className="text-white/50 text-sm mb-1">
-                  {lightboxIndex + 1} من {WATCHES.length}
-                </p>
-                <p className="text-white text-2xl font-bold">
-                  {WATCHES[lightboxIndex].name}
-                </p>
-                <p className="text-amber-400 text-lg font-bold mt-1">
-                  {formatDZD(BOX_PRICE)}
-                </p>
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
+                <p className="text-white/50 text-xs">{lightboxIndex + 1} / {WATCHES.length}</p>
+                <p className="text-white text-xl font-bold mt-1">{WATCHES[lightboxIndex].name}</p>
+                <p className="text-amber-400 font-bold mt-0.5">{formatDZD(WATCH_PRICE)}</p>
               </div>
             </motion.div>
 
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1">
               {WATCHES.map((_, idx) => (
                 <button
                   key={idx}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLightboxIndex(idx);
-                  }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    idx === lightboxIndex
-                      ? "bg-amber-400 w-6"
-                      : "bg-white/30 w-1.5"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
+                  className={`h-1 rounded-full transition-all ${
+                    idx === lightboxIndex ? "bg-white w-5" : "bg-white/30 w-1"
                   }`}
                 />
               ))}
@@ -1054,40 +862,26 @@ export default function Page() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 md:p-12 max-w-md w-full text-center shadow-2xl"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-xl"
             >
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               </div>
-
-              <h3 className="text-2xl font-bold text-stone-900 mb-3">
-                تم استلام طلبك بنجاح
-              </h3>
-              <p className="text-stone-600 mb-6 text-base">
-                سنتصل بك قريباً لتأكيد الطلب وترتيب التوصيل
-              </p>
-
-              <div className="bg-stone-50 rounded-xl p-4 mb-6 ring-1 ring-stone-200/60">
-                <div className="text-xs text-stone-400 mb-1 uppercase tracking-wide">
-                  رقم الطلب
-                </div>
-                <div className="text-xl font-bold text-stone-900">
-                  #{Date.now().toString().slice(-6)}
-                </div>
-                <div className="text-sm text-stone-500 mt-2">
-                  الإجمالي: {formatDZD(total)}
-                </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">تم استلام طلبك</h3>
+              <p className="text-gray-500 mb-5 text-sm">سنتصل بك قريباً لتأكيد الطلب</p>
+              <div className="bg-gray-50 rounded-lg p-3 mb-5 text-sm">
+                <span className="text-gray-400">الإجمالي: </span>
+                <span className="font-bold text-gray-900">{formatDZD(total)}</span>
               </div>
-
               <button
                 onClick={() => window.location.reload()}
-                className="w-full bg-stone-900 hover:bg-stone-800 text-white font-bold py-3.5 px-6 rounded-xl transition-colors"
+                className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition-colors"
               >
                 حسناً
               </button>
@@ -1097,12 +891,10 @@ export default function Page() {
       </AnimatePresence>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-white border-t border-stone-200/60 text-stone-400 py-8">
-        <div className="mx-auto max-w-6xl px-4 text-center">
-          <p className="text-xs">
-            {new Date().getFullYear()} BS Monters — جميع الحقوق محفوظة
-          </p>
-        </div>
+      <footer className="border-t border-gray-100 py-6">
+        <p className="text-center text-xs text-gray-400">
+          {new Date().getFullYear()} BS Monters — جميع الحقوق محفوظة
+        </p>
       </footer>
     </div>
   );
