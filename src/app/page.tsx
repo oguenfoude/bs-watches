@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,13 +13,14 @@ import {
   MapPin,
   Home,
   Building2,
-  X,
   ChevronLeft,
   ChevronRight,
   Gift,
-  Eye,
   Truck,
   Clock,
+  Star,
+  Eye,
+  Package,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -188,9 +189,109 @@ function validateForm(
   if (phoneErr) errors.phone = phoneErr;
   if (!formData.wilaya?.trim()) errors.wilaya = "اختر أو اكتب اسم الولاية";
   if (!formData.baladiya?.trim()) errors.baladiya = "اكتب اسم البلدية أو الحي";
-  if (!selectedWatchId) errors.watch = "اختر الموديل الذي يعجبك أعلاه";
+  if (!selectedWatchId) errors.watch = "اختر الموديل الذي يعجبك";
   if (!deliveryOption) errors.delivery = "اختر طريقة التوصيل المناسبة لك";
   return errors;
+}
+
+// ─────────────────────────────────────────────
+// SWIPEABLE IMAGE CAROUSEL HOOK
+// ─────────────────────────────────────────────
+function useSwipe(onSwipeLeft: () => void, onSwipeRight: () => void) {
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchEndY = useRef(0);
+  const isDragging = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
+    isDragging.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndY.current = e.targetTouches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const diffX = touchStartX.current - touchEndX.current;
+    const diffY = touchStartY.current - touchEndY.current;
+    // Only swipe if horizontal movement > vertical and threshold met
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        // Swiped left → next (RTL: so this means "forward")
+        onSwipeLeft();
+      } else {
+        // Swiped right → prev
+        onSwipeRight();
+      }
+    }
+  }, [onSwipeLeft, onSwipeRight]);
+
+  return { handleTouchStart, handleTouchMove, handleTouchEnd };
+}
+
+// ─────────────────────────────────────────────
+// COUNTDOWN TIMER COMPONENT
+// ─────────────────────────────────────────────
+function CountdownTimer() {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    // Offer ends at midnight tonight
+    const getEndOfDay = () => {
+      const d = new Date();
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+    const endDate = getEndOfDay();
+
+    const tick = () => {
+      const now = new Date().getTime();
+      const diff = endDate.getTime() - now;
+      if (diff <= 0) {
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      setTimeLeft({
+        hours: Math.floor(diff / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  return (
+    <div className="flex items-center gap-1.5 text-center" dir="ltr">
+      {[
+        { val: pad(timeLeft.hours), label: "ساعة" },
+        { val: pad(timeLeft.minutes), label: "دقيقة" },
+        { val: pad(timeLeft.seconds), label: "ثانية" },
+      ].map(({ val, label }, i) => (
+        <div key={label} className="flex items-center gap-1.5">
+          <div className="flex flex-col items-center">
+            <span className="bg-gray-900 text-white text-lg md:text-xl font-bold px-3 py-1.5 rounded-lg min-w-[44px] tabular-nums">
+              {val}
+            </span>
+            <span className="text-[10px] text-gray-500 mt-1">{label}</span>
+          </div>
+          {i < 2 && (
+            <span className="text-gray-400 font-bold text-lg mb-4">:</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -201,6 +302,12 @@ export default function Page() {
     initMetaPixel();
   }, []);
 
+  // ── Carousel State ──
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(0);
+  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Form State ──
   const [selectedWatchId, setSelectedWatchId] = useState<string | null>(null);
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -213,17 +320,59 @@ export default function Page() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [heroIdx, setHeroIdx] = useState(0);
+  const [viewerCount, setViewerCount] = useState(5); // Static initial value for SSR
 
+  // Set random viewer count only on client
   useEffect(() => {
-    const timer = setInterval(
-      () => setHeroIdx((p) => (p + 1) % WATCHES.length),
-      3500,
-    );
-    return () => clearInterval(timer);
+    setViewerCount(Math.floor(Math.random() * 8) + 3);
   }, []);
+
+  // ── Carousel Navigation ──
+  const goToSlide = useCallback((index: number) => {
+    setSlideDirection(index > currentSlide ? 1 : -1);
+    setCurrentSlide(index);
+  }, [currentSlide]);
+
+  const nextSlide = useCallback(() => {
+    setSlideDirection(1);
+    setCurrentSlide((p) => (p + 1) % WATCHES.length);
+  }, []);
+
+  const prevSlide = useCallback(() => {
+    setSlideDirection(-1);
+    setCurrentSlide((p) => (p - 1 + WATCHES.length) % WATCHES.length);
+  }, []);
+
+  // Auto-play carousel
+  useEffect(() => {
+    autoPlayRef.current = setInterval(() => {
+      setSlideDirection(1);
+      setCurrentSlide((p) => (p + 1) % WATCHES.length);
+    }, 4000);
+    return () => {
+      if (autoPlayRef.current) clearInterval(autoPlayRef.current);
+    };
+  }, []);
+
+  // Pause auto-play on user interaction
+  const pauseAutoPlay = useCallback(() => {
+    if (autoPlayRef.current) {
+      clearInterval(autoPlayRef.current);
+      autoPlayRef.current = null;
+    }
+    // Resume after 8 seconds
+    setTimeout(() => {
+      autoPlayRef.current = setInterval(() => {
+        setSlideDirection(1);
+        setCurrentSlide((p) => (p + 1) % WATCHES.length);
+      }, 4000);
+    }, 8000);
+  }, []);
+
+  const swipeHandlers = useSwipe(
+    () => { pauseAutoPlay(); nextSlide(); },
+    () => { pauseAutoPlay(); prevSlide(); },
+  );
 
   const selectedWatch = useMemo(
     () => WATCHES.find((w) => w.id === selectedWatchId) || null,
@@ -235,28 +384,6 @@ export default function Page() {
     if (deliveryOption) price += DELIVERY_COST[deliveryOption];
     return price;
   }, [deliveryOption]);
-
-  const openLightbox = useCallback((index: number) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-    document.body.style.overflow = "hidden";
-    trackFb("ViewContent", {
-      content_type: "product",
-      content_ids: [WATCHES[index].id],
-      content_name: WATCHES[index].name,
-      value: WATCH_PRICE,
-      currency: "DZD",
-    });
-  }, []);
-
-  const closeLightbox = useCallback(() => {
-    setLightboxOpen(false);
-    document.body.style.overflow = "";
-  }, []);
-
-  const nextImage = () => setLightboxIndex((p) => (p + 1) % WATCHES.length);
-  const prevImage = () =>
-    setLightboxIndex((p) => (p - 1 + WATCHES.length) % WATCHES.length);
 
   const handleWatchSelect = (watchId: string) => {
     setSelectedWatchId(watchId);
@@ -334,11 +461,40 @@ export default function Page() {
   };
 
   const inputStyle = (hasError: boolean) =>
-    `w-full rounded-xl border px-4 py-3 text-sm transition-all duration-200 focus:outline-none focus:ring-2 ${
+    `w-full rounded-xl border px-4 py-3.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 ${
       hasError
         ? "border-red-300 bg-red-50/30 focus:ring-red-200 focus:border-red-400"
         : "border-gray-200 bg-white focus:ring-amber-100 focus:border-amber-400 hover:border-gray-300"
     }`;
+
+  // Slide animation variants
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction > 0 ? -300 : 300,
+      opacity: 0,
+    }),
+  };
+
+  // Thumbnail strip - show 5 thumbnails around current
+  const getVisibleThumbnails = () => {
+    const count = 5;
+    const half = Math.floor(count / 2);
+    let start = currentSlide - half;
+    if (start < 0) start = 0;
+    if (start + count > WATCHES.length) start = Math.max(0, WATCHES.length - count);
+    return WATCHES.slice(start, start + count).map((w, i) => ({
+      ...w,
+      realIndex: start + i,
+    }));
+  };
 
   // ═════════════════════════════════════════════
   // RENDER
@@ -346,523 +502,560 @@ export default function Page() {
   return (
     <div dir="rtl" className="min-h-screen bg-white text-gray-900">
 
+      {/* ── TOP PROMO BAR ── */}
+      <div className="bg-gray-900 text-white text-center py-2 px-4">
+        <p className="text-xs md:text-sm font-medium flex items-center justify-center gap-2">
+          <Gift className="w-3.5 h-3.5 text-amber-400" />
+          <span>عرض محدود — ساعة + طقم إكسسوارات مجاني | التوصيل متوفر لجميع الولايات</span>
+          <Gift className="w-3.5 h-3.5 text-amber-400" />
+        </p>
+      </div>
+
       {/* ── HEADER ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div className="mx-auto max-w-6xl px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-md">
                 <span className="text-white font-bold text-sm">BS</span>
               </div>
               <span className="font-bold text-gray-900">BS Monters</span>
             </div>
             <a
               href="#order"
-              className="hidden sm:inline-flex items-center gap-2 px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:from-red-600 hover:to-red-700 transition-all text-base shadow-lg shadow-red-500/20 hover:shadow-red-500/30 hover:scale-[1.01] active:scale-[0.99]"
               onClick={() => trackFb("InitiateCheckout")}
             >
-              <ShoppingCart className="w-4 h-4" />
-              اطلب الآن
+              <ShoppingCart className="w-5 h-5" />
+              <span>اطلب الآن — <span>{formatDZD(WATCH_PRICE)}</span></span>
             </a>
           </div>
         </div>
       </header>
 
-      {/* ── HERO ── */}
+      {/* ═══════════════════════════════════════════
+          PRODUCT SECTION — Image Carousel + Product Info
+          ═══════════════════════════════════════════ */}
       <section className="bg-gray-50">
-        <div className="mx-auto max-w-6xl px-4 py-12 md:py-20">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="mx-auto max-w-6xl px-4 py-6 md:py-12">
+          <div className="grid lg:grid-cols-2 gap-6 lg:gap-12 items-start">
 
-            {/* Image */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="relative aspect-square rounded-2xl overflow-hidden bg-white shadow-lg"
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={heroIdx}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="absolute inset-0"
-                >
-                  <Image
-                    src={WATCHES[heroIdx].image}
-                    alt={WATCHES[heroIdx].name}
-                    fill
-                    priority
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                  />
-                </motion.div>
-              </AnimatePresence>
+            {/* ── IMAGE CAROUSEL (Sticky on desktop) ── */}
+            <div className="space-y-4 lg:sticky lg:top-24">
+              {/* Main Image Slider */}
+              <div
+                className="relative aspect-square rounded-2xl overflow-hidden bg-white shadow-lg border border-gray-100 cursor-grab active:cursor-grabbing select-none"
+                onTouchStart={swipeHandlers.handleTouchStart}
+                onTouchMove={swipeHandlers.handleTouchMove}
+                onTouchEnd={swipeHandlers.handleTouchEnd}
+              >
+                <AnimatePresence initial={false} custom={slideDirection} mode="wait">
+                  <motion.div
+                    key={currentSlide}
+                    custom={slideDirection}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="absolute inset-0"
+                  >
+                    <Image
+                      src={WATCHES[currentSlide].image}
+                      alt={WATCHES[currentSlide].name}
+                      fill
+                      priority
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                    />
+                  </motion.div>
+                </AnimatePresence>
 
-              {/* Price badge */}
-              <div className="absolute top-4 right-4">
-                <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
-                  خصم {Math.round(((OLD_PRICE - WATCH_PRICE) / OLD_PRICE) * 100)}%
-                </span>
-              </div>
-
-              {/* Model name */}
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    {WATCHES[heroIdx].name}
-                  </span>
-                  <span className="text-sm font-bold text-gray-900">
-                    {formatDZD(WATCH_PRICE)}
+                {/* Discount badge */}
+                <div className="absolute top-3 right-3 z-10">
+                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+                    -{Math.round(((OLD_PRICE - WATCH_PRICE) / OLD_PRICE) * 100)}%
                   </span>
                 </div>
-              </div>
-            </motion.div>
 
-            {/* Text */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="space-y-6"
-            >
-              <div>
-                <p className="text-amber-600 text-sm font-semibold mb-3">
-                  الأكثر مبيعاً في الجزائر
-                </p>
-                <h1 className="text-3xl md:text-5xl font-bold text-gray-900 leading-tight">
-                  ساعات أنيقة بسعر
-                  <span className="text-amber-600"> استثنائي</span>
-                </h1>
-              </div>
-
-              <p className="text-gray-600 text-base md:text-lg leading-relaxed max-w-md">
-                23 موديل حصري بتصميم عصري. كل ساعة تأتي مع طقم إكسسوارات كامل
-                وتوصيل لجميع الولايات.
-              </p>
-
-              {/* Price */}
-              <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-bold text-gray-900">
-                  {formatDZD(WATCH_PRICE)}
-                </span>
-                <span className="text-lg text-gray-400 line-through">
-                  {formatDZD(OLD_PRICE)}
-                </span>
-              </div>
-
-              {/* Features */}
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
-                {[
-                  { icon: Gift, text: "طقم إكسسوارات مجاني" },
-                  { icon: ShieldCheck, text: "ضمان سنة كاملة" },
-                  { icon: Truck, text: "الدفع عند الاستلام" },
-                ].map(({ icon: Icon, text }) => (
-                  <span key={text} className="flex items-center gap-1.5">
-                    <Icon className="w-4 h-4 text-amber-600" />
-                    {text}
+                {/* Slide counter */}
+                <div className="absolute top-3 left-3 z-10">
+                  <span className="bg-black/50 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-full">
+                    {currentSlide + 1} / {WATCHES.length}
                   </span>
+                </div>
+
+                {/* Navigation arrows */}
+                <button
+                  onClick={() => { pauseAutoPlay(); prevSlide(); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-105"
+                  aria-label="السابق"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-700" />
+                </button>
+                <button
+                  onClick={() => { pauseAutoPlay(); nextSlide(); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-105"
+                  aria-label="التالي"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-700" />
+                </button>
+
+                {/* Bottom model name overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-4 z-10">
+                  <p className="text-white font-bold text-lg">{WATCHES[currentSlide].name}</p>
+                  <p className="text-amber-300 text-sm font-semibold">{formatDZD(WATCH_PRICE)}</p>
+                </div>
+
+                {/* Swipe hint for mobile */}
+                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 md:hidden">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 2, repeat: 2, delay: 1 }}
+                    className="text-white/70 text-xs flex items-center gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1"
+                  >
+                    <ChevronRight className="w-3 h-3" />
+                    اسحب لتصفح الموديلات
+                    <ChevronLeft className="w-3 h-3" />
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Thumbnail Strip */}
+              <div className="flex items-center gap-2 justify-center">
+                <button
+                  onClick={() => { pauseAutoPlay(); prevSlide(); }}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
+
+                <div className="flex gap-1.5 overflow-hidden">
+                  {getVisibleThumbnails().map((thumb) => (
+                    <button
+                      key={thumb.id}
+                      onClick={() => {
+                        pauseAutoPlay();
+                        goToSlide(thumb.realIndex);
+                      }}
+                      className={`relative w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all duration-200 ${
+                        currentSlide === thumb.realIndex
+                          ? "border-amber-500 shadow-md scale-105"
+                          : "border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-300"
+                      }`}
+                    >
+                      <Image
+                        src={thumb.image}
+                        alt={thumb.name}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => { pauseAutoPlay(); nextSlide(); }}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+
+              {/* Dot indicators */}
+              <div className="flex items-center justify-center gap-1 px-4">
+                {WATCHES.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => { pauseAutoPlay(); goToSlide(idx); }}
+                    className={`rounded-full transition-all duration-300 ${
+                      idx === currentSlide
+                        ? "w-6 h-1.5 bg-amber-500"
+                        : "w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400"
+                    }`}
+                    aria-label={`الموديل ${idx + 1}`}
+                  />
                 ))}
               </div>
+            </div>
 
-              <a
-                href="#order"
-                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors text-base"
-                onClick={() => trackFb("InitiateCheckout")}
-              >
-                <ShoppingCart className="w-5 h-5" />
-                اطلب الآن — {formatDZD(WATCH_PRICE)}
-              </a>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── GALLERY ── */}
-      <section id="models" className="py-14 md:py-20">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              اختر الموديل المفضل لديك
-            </h2>
-            <p className="text-gray-500 mt-2 text-sm">
-              اضغط على أي صورة لمشاهدتها بالتفصيل
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-            {WATCHES.map((watch, index) => (
+            {/* ── INFO & FORM COLUMN ── */}
+            <div className="space-y-10">
+              {/* ── PRODUCT INFO ── */}
               <motion.div
-                key={watch.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ delay: index * 0.03, duration: 0.35 }}
-                className="group relative rounded-xl overflow-hidden bg-gray-50 cursor-pointer border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all duration-200"
-                onClick={() => openLightbox(index)}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="space-y-5"
               >
-                <div className="aspect-[4/5] relative overflow-hidden">
-                  <Image
-                    src={watch.image}
-                    alt={watch.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading={index < 5 ? "eager" : "lazy"}
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span className="w-6 h-6 bg-gray-900/60 text-white rounded-md text-[10px] font-bold flex items-center justify-center">
-                      {index + 1}
-                    </span>
-                  </div>
-                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                    <Eye className="w-5 h-5 text-white" />
-                  </div>
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="bg-red-50 text-red-600 text-xs font-bold px-3 py-1 rounded-full border border-red-100">
+                    🔥 الأكثر مبيعاً
+                  </span>
+                  <span className="bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1 rounded-full border border-amber-100">
+                    ⭐ عرض محدود
+                  </span>
                 </div>
-                <div className="p-2.5 text-center">
-                  <p className="font-medium text-gray-800 text-sm">{watch.name}</p>
-                  <p className="text-amber-600 text-xs font-semibold mt-0.5">
-                    {formatDZD(WATCH_PRICE)}
+
+                {/* Title */}
+                <div>
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+                    ساعة أنيقة + طقم إكسسوارات كامل
+                  </h1>
+                  <p className="text-gray-500 mt-2 text-sm md:text-base">
+                    23 موديل حصري متوفر — اختر الموديل المفضل لديك واطلب الآن
                   </p>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ── ORDER FORM ── */}
-      <section id="order" className="py-14 md:py-20 bg-gray-50">
-        <div className="mx-auto max-w-xl px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8"
-          >
-            <div className="text-center mb-6">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                أكمل طلبك
+                {/* Price Section */}
+                <div className="bg-gradient-to-r from-gray-50 to-amber-50/50 rounded-xl p-4 border border-gray-100">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl md:text-4xl font-black text-gray-900">
+                      {formatDZD(WATCH_PRICE)}
+                    </span>
+                    <span className="text-lg text-gray-400 line-through decoration-red-400 decoration-2">
+                      {formatDZD(OLD_PRICE)}
+                    </span>
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                      وفر <span>{formatDZD(OLD_PRICE - WATCH_PRICE)}</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5" />
+                    + مصاريف التوصيل حسب طريقة التوصيل المختارة
+                  </p>
+                </div>
+
+                {/* Social Proof */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <div className="relative flex items-center justify-center">
+                      <span className="absolute w-2.5 h-2.5 bg-green-500 rounded-full animate-ping opacity-40" />
+                      <span className="w-2.5 h-2.5 bg-green-500 rounded-full relative" />
+                    </div>
+                    <Eye className="w-3.5 h-3.5 text-gray-500" />
+                    <span className="text-gray-600"><span>{viewerCount}</span> شخص يشاهد الآن</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    ))}
+                    <span className="text-xs text-gray-500 mr-1">(4.9)</span>
+                  </div>
+                </div>
+
+                {/* Offer Countdown */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-red-500" />
+                      ينتهي العرض خلال
+                    </span>
+                  </div>
+                  <CountdownTimer />
+                </div>
+
+                {/* Features Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: Gift, title: "هدية مجانية", desc: "طقم إكسسوارات كامل", color: "text-purple-600 bg-purple-50" },
+                    { icon: ShieldCheck, title: "ضمان سنة", desc: "ضمان كامل على الساعة", color: "text-blue-600 bg-blue-50" },
+                    { icon: Package, title: "توصيل آمن", desc: "تغليف فاخر ومحمي", color: "text-emerald-600 bg-emerald-50" },
+                    { icon: Truck, title: "الدفع عند الاستلام", desc: "لا تدفع حتى تستلم", color: "text-amber-600 bg-amber-50" },
+                  ].map(({ icon: Icon, title, desc, color }) => (
+                    <div key={title} className="bg-white rounded-xl border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
+                      <div className={`w-9 h-9 ${color} rounded-lg flex items-center justify-center mx-auto mb-2`}>
+                        <Icon className="w-4.5 h-4.5" />
+                      </div>
+                      <p className="font-semibold text-gray-800 text-xs">{title}</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* ── ORDER FORM ── */}
+              <div id="order">
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+                >
+            {/* Form Header */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-5 text-center">
+              <h2 className="text-xl font-bold text-white">
+                معلومات الزبون
               </h2>
-              <p className="text-gray-500 mt-1 text-sm">
+              <p className="text-gray-400 mt-1 text-sm">
                 سنتصل بك لتأكيد الطلب وترتيب التوصيل
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="p-5 md:p-7">
+              <form onSubmit={handleSubmit} className="space-y-4">
 
-              {/* Model Selection */}
-              <div
-                className={`rounded-xl p-4 transition-colors ${
-                  errors.watch
-                    ? "bg-red-50 border border-red-200"
-                    : selectedWatch
-                      ? "bg-emerald-50 border border-emerald-200"
-                      : "bg-gray-50 border border-gray-100"
-                }`}
-                data-error={errors.watch ? "true" : undefined}
-              >
-                <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  موديل الساعة
-                </label>
-                <select
-                  value={selectedWatchId || ""}
-                  onChange={(e) => handleWatchSelect(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 appearance-none cursor-pointer"
+                {/* Watch Model Selection */}
+                <div
+                  className={`rounded-xl p-4 transition-all ${
+                    errors.watch
+                      ? "bg-red-50 border-2 border-red-300"
+                      : selectedWatch
+                        ? "bg-emerald-50 border-2 border-emerald-300"
+                        : "bg-gray-50 border-2 border-dashed border-gray-200"
+                  }`}
+                  data-error={errors.watch ? "true" : undefined}
                 >
-                  <option value="">— اختر الموديل —</option>
-                  {WATCHES.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
+                  <label className="block text-sm font-bold text-gray-800 mb-2">
+                    اختر رقم الموديل <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedWatchId || ""}
+                    onChange={(e) => handleWatchSelect(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 appearance-none cursor-pointer"
+                  >
+                    <option value="">— اختر الموديل —</option>
+                    {WATCHES.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
 
-                {errors.watch && (
-                  <p className="text-red-500 text-xs mt-1.5">{errors.watch}</p>
-                )}
-
-                <AnimatePresence>
-                  {selectedWatch && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-3 pt-3 border-t border-gray-200/60"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-emerald-200">
-                          <Image
-                            src={selectedWatch.image}
-                            alt={selectedWatch.name}
-                            fill
-                            className="object-cover"
-                            sizes="56px"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900 text-sm">{selectedWatch.name}</p>
-                          <p className="text-emerald-600 text-xs">{formatDZD(WATCH_PRICE)}</p>
-                        </div>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                      </div>
-                    </motion.div>
+                  {errors.watch && (
+                    <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.watch}</p>
                   )}
-                </AnimatePresence>
-              </div>
 
-              {/* Personal Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div data-error={errors.fullName ? "true" : undefined}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الاسم الكامل</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) => {
-                        setFormData((f) => ({ ...f, fullName: e.target.value }));
-                        setErrors((p) => ({ ...p, fullName: undefined }));
-                      }}
-                      placeholder="أحمد بوعلام"
-                      className={inputStyle(!!errors.fullName)}
-                    />
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  </div>
-                  {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
+                  <AnimatePresence>
+                    {selectedWatch && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-3 pt-3 border-t border-gray-200/60"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 border-emerald-300 shadow-sm">
+                            <Image
+                              src={selectedWatch.image}
+                              alt={selectedWatch.name}
+                              fill
+                              className="object-cover"
+                              sizes="56px"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 text-sm">{selectedWatch.name}</p>
+                            <p className="text-emerald-600 text-xs font-semibold">{formatDZD(WATCH_PRICE)}</p>
+                          </div>
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                <div data-error={errors.phone ? "true" : undefined}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      maxLength={10}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        setFormData((f) => ({ ...f, phone: val }));
-                        setErrors((p) => ({ ...p, phone: undefined }));
-                      }}
-                      placeholder="0555123456"
-                      className={inputStyle(!!errors.phone)}
-                    />
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                {/* Personal Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div data-error={errors.fullName ? "true" : undefined}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      الاسم واللقب <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.fullName}
+                        onChange={(e) => {
+                          setFormData((f) => ({ ...f, fullName: e.target.value }));
+                          setErrors((p) => ({ ...p, fullName: undefined }));
+                        }}
+                        placeholder="أحمد بوعلام"
+                        className={inputStyle(!!errors.fullName)}
+                      />
+                      <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
                   </div>
-                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                </div>
-              </div>
 
-              {/* Location */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div data-error={errors.wilaya ? "true" : undefined}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الولاية</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.wilaya}
-                      onChange={(e) => {
-                        setFormData((f) => ({ ...f, wilaya: e.target.value }));
-                        setErrors((p) => ({ ...p, wilaya: undefined }));
-                      }}
-                      placeholder="الجزائر العاصمة"
-                      className={inputStyle(!!errors.wilaya)}
-                    />
-                    <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <div data-error={errors.phone ? "true" : undefined}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      رقم الهاتف <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        maxLength={10}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setFormData((f) => ({ ...f, phone: val }));
+                          setErrors((p) => ({ ...p, phone: undefined }));
+                        }}
+                        placeholder="0555123456"
+                        className={inputStyle(!!errors.phone)}
+                      />
+                      <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                   </div>
-                  {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
                 </div>
 
-                <div data-error={errors.baladiya ? "true" : undefined}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">البلدية</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.baladiya}
-                      onChange={(e) => {
-                        setFormData((f) => ({ ...f, baladiya: e.target.value }));
-                        setErrors((p) => ({ ...p, baladiya: undefined }));
-                      }}
-                      placeholder="باب الزوار"
-                      className={inputStyle(!!errors.baladiya)}
-                    />
-                    <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                {/* Location */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div data-error={errors.wilaya ? "true" : undefined}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      الولاية <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.wilaya}
+                        onChange={(e) => {
+                          setFormData((f) => ({ ...f, wilaya: e.target.value }));
+                          setErrors((p) => ({ ...p, wilaya: undefined }));
+                        }}
+                        placeholder="الجزائر العاصمة"
+                        className={inputStyle(!!errors.wilaya)}
+                      />
+                      <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {errors.wilaya && <p className="text-red-500 text-xs mt-1">{errors.wilaya}</p>}
                   </div>
-                  {errors.baladiya && <p className="text-red-500 text-xs mt-1">{errors.baladiya}</p>}
-                </div>
-              </div>
 
-              {/* Delivery */}
-              <div data-error={errors.delivery ? "true" : undefined}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">طريقة التوصيل</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { key: "desk" as DeliveryOption, icon: Building2, label: "للمكتب", cost: DELIVERY_COST.desk },
-                    { key: "home" as DeliveryOption, icon: Home, label: "للمنزل", cost: DELIVERY_COST.home },
-                  ].map(({ key, icon: Icon, label, cost }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleDeliverySelect(key)}
-                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border-2 transition-all text-center ${
-                        deliveryOption === key
-                          ? "border-amber-400 bg-amber-50"
-                          : "border-gray-200 bg-white hover:border-gray-300"
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 ${deliveryOption === key ? "text-amber-600" : "text-gray-400"}`} />
-                      <span className="font-semibold text-gray-800 text-sm">{label}</span>
-                      <span className="text-xs text-gray-500">{formatDZD(cost)}</span>
-                    </button>
-                  ))}
-                </div>
-                {errors.delivery && <p className="text-red-500 text-xs mt-1.5">{errors.delivery}</p>}
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span>
-                </label>
-                <textarea
-                  value={formData.notes || ""}
-                  onChange={(e) => setFormData((f) => ({ ...f, notes: e.target.value }))}
-                  rows={2}
-                  placeholder="عنوان تفصيلي أو رقم هاتف إضافي..."
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 resize-none bg-white hover:border-gray-300 transition-all duration-200"
-                />
-              </div>
-
-              {/* Summary + Submit */}
-              <div className="pt-4 border-t border-gray-100">
-                <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      الساعة {selectedWatch ? `(${selectedWatch.name})` : ""}
-                    </span>
-                    <span className="font-medium text-gray-800">{formatDZD(WATCH_PRICE)}</span>
+                  <div data-error={errors.baladiya ? "true" : undefined}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      البلدية <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.baladiya}
+                        onChange={(e) => {
+                          setFormData((f) => ({ ...f, baladiya: e.target.value }));
+                          setErrors((p) => ({ ...p, baladiya: undefined }));
+                        }}
+                        placeholder="باب الزوار"
+                        className={inputStyle(!!errors.baladiya)}
+                      />
+                      <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {errors.baladiya && <p className="text-red-500 text-xs mt-1">{errors.baladiya}</p>}
                   </div>
-                  {deliveryOption && (
+                </div>
+
+                {/* Delivery */}
+                <div data-error={errors.delivery ? "true" : undefined}>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    طريقة التوصيل <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { key: "desk" as DeliveryOption, icon: Building2, label: "للمكتب", cost: DELIVERY_COST.desk },
+                      { key: "home" as DeliveryOption, icon: Home, label: "للمنزل", cost: DELIVERY_COST.home },
+                    ].map(({ key, icon: Icon, label, cost }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => handleDeliverySelect(key)}
+                        className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center ${
+                          deliveryOption === key
+                            ? "border-amber-400 bg-amber-50 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${deliveryOption === key ? "text-amber-600" : "text-gray-400"}`} />
+                        <span className="font-bold text-gray-800 text-sm">{label}</span>
+                        <span className="text-xs text-gray-500">{formatDZD(cost)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {errors.delivery && <p className="text-red-500 text-xs mt-1.5">{errors.delivery}</p>}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span>
+                  </label>
+                  <textarea
+                    value={formData.notes || ""}
+                    onChange={(e) => setFormData((f) => ({ ...f, notes: e.target.value }))}
+                    rows={2}
+                    placeholder="عنوان تفصيلي أو رقم هاتف إضافي..."
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 resize-none bg-white hover:border-gray-300 transition-all duration-200"
+                  />
+                </div>
+
+                {/* Summary + Submit */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">
-                        التوصيل {deliveryOption === "home" ? "للمنزل" : "للمكتب"}
+                        الساعة {selectedWatch ? `(${selectedWatch.name})` : ""}
                       </span>
-                      <span className="font-medium text-gray-800">
-                        {formatDZD(DELIVERY_COST[deliveryOption])}
-                      </span>
+                      <span className="font-semibold text-gray-800">{formatDZD(WATCH_PRICE)}</span>
+                    </div>
+                    {deliveryOption && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          التوصيل {deliveryOption === "home" ? "للمنزل" : "للمكتب"}
+                        </span>
+                        <span className="font-semibold text-gray-800">
+                          {formatDZD(DELIVERY_COST[deliveryOption])}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2.5 border-t border-gray-200">
+                      <span className="font-black text-gray-900 text-base">المجموع</span>
+                      <span className="font-black text-xl text-gray-900">{formatDZD(total)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-base shadow-lg shadow-red-500/20 hover:shadow-red-500/30 hover:scale-[1.005] active:scale-[0.995]"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        جاري الإرسال...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5" />
+                        <span>اضغط هنا للطلب — <span>{formatDZD(total)}</span></span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-center gap-5 mt-4 text-xs text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> آمن 100%
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> توصيل 24-48h
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Truck className="w-3.5 h-3.5" /> الدفع عند الاستلام
+                    </span>
+                  </div>
+
+                  {submitError && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm text-center">
+                      {submitError}
                     </div>
                   )}
-                  <div className="flex justify-between pt-2 border-t border-gray-200">
-                    <span className="font-bold text-gray-900">المجموع</span>
-                    <span className="font-bold text-lg text-gray-900">{formatDZD(total)}</span>
-                  </div>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      جاري الإرسال...
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-5 h-5" />
-                      تأكيد الطلب — {formatDZD(total)}
-                    </>
-                  )}
-                </button>
-
-                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> آمن 100%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> توصيل 24-48h
-                  </span>
-                </div>
-
-                {submitError && (
-                  <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm text-center">
-                    {submitError}
-                  </div>
-                )}
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── LIGHTBOX ── */}
-      <AnimatePresence>
-        {lightboxOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
-            onClick={closeLightbox}
-          >
-            <button
-              onClick={closeLightbox}
-              className="absolute top-4 left-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); prevImage(); }}
-              className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); nextImage(); }}
-              className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <motion.div
-              key={lightboxIndex}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-2xl mx-4 aspect-[3/4] max-h-[80vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Image
-                src={WATCHES[lightboxIndex].image}
-                alt={WATCHES[lightboxIndex].name}
-                fill
-                className="object-contain"
-                sizes="(max-width: 1024px) 100vw, 672px"
-                priority
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
-                <p className="text-white/50 text-xs">{lightboxIndex + 1} / {WATCHES.length}</p>
-                <p className="text-white text-xl font-bold mt-1">{WATCHES[lightboxIndex].name}</p>
-                <p className="text-amber-400 font-bold mt-0.5">{formatDZD(WATCH_PRICE)}</p>
-              </div>
-            </motion.div>
-
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1">
-              {WATCHES.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
-                  className={`h-1 rounded-full transition-all ${
-                    idx === lightboxIndex ? "bg-white w-5" : "bg-white/30 w-1"
-                  }`}
-                />
-              ))}
+              </form>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── SUCCESS MODAL ── */}
       <AnimatePresence>
@@ -882,8 +1075,8 @@ export default function Page() {
               <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">تم استلام طلبك</h3>
-              <p className="text-gray-500 mb-5 text-sm">سنتصل بك قريباً لتأكيد الطلب</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">تم استلام طلبك بنجاح! ✅</h3>
+              <p className="text-gray-500 mb-5 text-sm">سنتصل بك قريباً لتأكيد الطلب وترتيب التوصيل</p>
               <div className="bg-gray-50 rounded-lg p-3 mb-5 text-sm">
                 <span className="text-gray-400">الإجمالي: </span>
                 <span className="font-bold text-gray-900">{formatDZD(total)}</span>
@@ -900,7 +1093,7 @@ export default function Page() {
       </AnimatePresence>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-gray-100 py-6">
+      <footer className="border-t border-gray-100 py-6 bg-gray-50">
         <p className="text-center text-xs text-gray-400">
           {new Date().getFullYear()} BS Monters — جميع الحقوق محفوظة
         </p>

@@ -42,3 +42,30 @@ select {
   background-position: left 1rem center;
   background-size: 12px;
 }
+
+/* Smooth carousel transitions */
+.carousel-slide {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Custom scrollbar for thumbnails */
+.thumbnail-strip::-webkit-scrollbar {
+  display: none;
+}
+.thumbnail-strip {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Pulse animation for live viewer count */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Tabular numbers for countdown */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
