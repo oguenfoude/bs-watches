@@ -69,3 +69,13 @@ select {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Animated striped progress bar */
+@keyframes progress-stripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+.animate-progress-stripe {
+  animation: progress-stripe 1s linear infinite;
+  background-size: 40px 40px;
+}
