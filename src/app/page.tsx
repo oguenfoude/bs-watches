@@ -27,10 +27,11 @@ const OLD_PRICE = 2000;
 const DELIVERY_COST: Record<DeliveryOption, number> = { desk: 500, home: 800 };
 const API_URL = "/api/submit-order";
 
-const WATCHES: WatchItem[] = Array.from({ length: 23 }, (_, i) => ({
-  id: `model-${i + 1}`,
-  name: `موديل ${i + 1}`,
-  image: `/images/watches/${i + 1}.webp`,
+const WATCH_IDS = [1, 2, 4, 5, 6, 8, 9, 11, 15, 16, 17, 18, 19, 20, 22, 23];
+const WATCHES: WatchItem[] = WATCH_IDS.map(n => ({
+  id: `model-${n}`,
+  name: `موديل ${n}`,
+  image: `/images/watches/${n}.webp`,
 }));
 
 // ─────────────────────────────────────────────
