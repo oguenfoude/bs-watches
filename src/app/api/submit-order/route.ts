@@ -29,8 +29,78 @@ interface ApiResponse {
   clientRequestId?: string;
 }
 
-// Dedup set
+// ─────────────────────────────────────────────
+// IN-MEMORY RATE LIMITER  (1 order / IP / hour)
+// ─────────────────────────────────────────────
 const processedIds = new Set<string>();
+
+interface RateEntry {
+  count: number;
+  firstAt: number;  // ms timestamp
+}
+const ipRateMap = new Map<string, RateEntry>();
+
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX      = 1;               // max orders per window
+
+/** Returns true when the request should be blocked. */
+function isRateLimited(ip: string): boolean {
+  const now   = Date.now();
+  const entry = ipRateMap.get(ip);
+
+  // No prior entry — create it and allow
+  if (!entry) {
+    ipRateMap.set(ip, { count: 1, firstAt: now });
+    return false;
+  }
+
+  // Window expired — reset
+  if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+    ipRateMap.set(ip, { count: 1, firstAt: now });
+    return false;
+  }
+
+  // Within window and already hit the limit
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return true;
+  }
+
+  // Within window but still under limit
+  entry.count += 1;
+  return false;
+}
+
+/** Clean up old entries every hour to avoid memory build-up. */
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRateMap.entries()) {
+    if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+      ipRateMap.delete(ip);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
+
+// ─────────────────────────────────────────────
+// SERVER-SIDE ANTI-FAKE PHONE VALIDATION
+// ─────────────────────────────────────────────
+function isValidAlgerianPhone(raw: string): boolean {
+  const d = raw.replace(/\D/g, "");
+  if (d.length !== 10)          return false;
+  if (!/^0[567]/.test(d))       return false;
+  // all same digit (0555555555)
+  if (/^(.)\1+$/.test(d))       return false;
+  // last-8 all same (0511111111)
+  if (/^0[567](\d)\1{7}$/.test(d)) return false;
+  // ascending or descending sequence in digits 2-10
+  const tail = d.slice(2);
+  const asc  = tail.split("").every((c, i, a) => i === 0 || +c === +a[i-1] + 1);
+  const desc = tail.split("").every((c, i, a) => i === 0 || +c === +a[i-1] - 1);
+  if (asc || desc) return false;
+  // repeated 4-digit block (0512341234)
+  const seg = tail.slice(0, 4);
+  if (tail === seg + seg) return false;
+  return true;
+}
 
 
 // ─────────────────────────────────────────────
@@ -192,6 +262,24 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ApiResponse>> {
   try {
+    // ── Extract real client IP ──
+    const forwarded = request.headers.get("x-forwarded-for");
+    const clientIp  = (forwarded ? forwarded.split(",")[0] : null)
+      || request.headers.get("x-real-ip")
+      || "unknown";
+
+    // ── IP rate limit check ──
+    if (isRateLimited(clientIp)) {
+      console.warn(`Rate limit hit for IP: ${clientIp}`);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "لقد أرسلت طلباً مؤخراً. يرجى الانتظار ساعة قبل إرسال طلب جديد.",
+        },
+        { status: 429 },
+      );
+    }
+
     const orderData: OrderData = await request.json();
 
     if (!orderData.clientRequestId) {
@@ -200,7 +288,7 @@ export async function POST(
         `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
 
-    // Dedup
+    // ── Dedup (same request ID sent twice) ──
     if (processedIds.has(orderData.clientRequestId)) {
       return NextResponse.json(
         {
@@ -219,8 +307,8 @@ export async function POST(
         { status: 400 },
       );
     }
-    const phoneDigits = (orderData.phone || "").replace(/\D/g, "");
-    if (phoneDigits.length !== 10 || !/^0[567]/.test(phoneDigits)) {
+    // ── Enhanced server-side phone validation ──
+    if (!isValidAlgerianPhone(orderData.phone || "")) {
       return NextResponse.json(
         { success: false, error: "رقم هاتف غير صالح" },
         { status: 400 },
