@@ -1,24 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Geist, Geist_Mono, Tajawal } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const tajawal = Tajawal({
-  variable: "--font-arabic",
-  subsets: ["arabic"],
-  weight: ["400", "700"],
-  display: "swap",
-});
 
 // NOTE: Replace https://example.com with your real production domain once deployed
 export const metadata: Metadata = {
@@ -82,9 +64,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${tajawal.variable} antialiased`}
-      >
+      <head>
+        {/* Tajawal Arabic font — loaded via link tag, no build-time download */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="antialiased" style={{ fontFamily: "'Tajawal', ui-sans-serif, system-ui, sans-serif" }}>
         {/* Structured Data (JSON-LD) */}
         <Script
           id="ld-json"

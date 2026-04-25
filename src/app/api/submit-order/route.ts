@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import fs from "fs";
@@ -344,12 +344,15 @@ export async function POST(
 
     processedIds.add(orderData.clientRequestId);
 
-    try {
-      await sendEmailNotification(orderData);
-      console.log("Email sent to:", process.env.ORDER_NOTIFICATION_EMAIL);
-    } catch (error) {
-      console.error("Failed to send email:", error);
-    }
+    // ✅ Fire email AFTER the response is sent — zero latency for the user
+    after(async () => {
+      try {
+        await sendEmailNotification(orderData);
+        console.log("Email sent to:", process.env.ORDER_NOTIFICATION_EMAIL);
+      } catch (error) {
+        console.error("Failed to send email:", error);
+      }
+    });
 
     return NextResponse.json(
       {
