@@ -50,7 +50,7 @@ const DELIVERY_COST: Record<DeliveryOption, number> = { desk: 500, home: 800 };
 const API_URL = "/api/submit-order";
 
 // Only include images that physically exist in /public/images/watches/
-const WATCH_IDS = [1, 2, 4, 5, 6, 8, 9, 11, 15, 16, 17, 18, 19, 20, 22, 23];
+const WATCH_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const WATCHES: WatchItem[] = WATCH_IDS.map((n) => ({
   id: `model-${n}`,
   name: `موديل ${n}`,
