@@ -181,10 +181,10 @@ export default function ClientLandingPage({ config }: ClientLandingPageProps) {
   // ── Derive constants from config ──
   const WATCH_PRICE = config.price;
   const OLD_PRICE = config.oldPrice;
-  const DELIVERY_COST: Record<DeliveryOption, number> = {
+  const DELIVERY_COST: Record<DeliveryOption, number> = useMemo(() => ({
     desk: config.deliveryCostDesk,
     home: config.deliveryCostHome,
-  };
+  }), [config.deliveryCostDesk, config.deliveryCostHome]);
   const WATCHES: WatchItem[] = config.watchIds.map((n) => ({
     id: `model-${n}`,
     name: `موديل ${n}`,

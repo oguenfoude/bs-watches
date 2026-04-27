@@ -68,6 +68,7 @@ export default function RootLayout({
         {/* Tajawal Arabic font — loaded via link tag, no build-time download */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap"
           rel="stylesheet"

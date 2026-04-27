@@ -162,9 +162,6 @@ async function sendEmailNotification(orderData: OrderData): Promise<void> {
     orderData.deliveryOption === "home" ? "توصيل للمنزل" : "توصيل للمكتب";
   const attachment = getWatchImageAttachment(orderData.selectedWatchId);
 
-  const imageBlock = attachment
-    ? `<img src="cid:${attachment.cid}" alt="${watchName}" style="max-width:220px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
-    : "";
 
   const html = `
   <div dir="rtl" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.08);border:1px solid #f0f0f0;">

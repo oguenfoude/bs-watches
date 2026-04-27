@@ -400,7 +400,7 @@ function ImageUploader({
           <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
           <div className="flex-1">
             <p className="font-bold text-sm">تم رفع موديل {uploadedId} بنجاح! ✅</p>
-            <p className="text-xs opacity-80 mt-0.5">تم إضافته في قسم الموديلات أدناه — انقر "حفظ" لتفعيله على الموقع</p>
+            <p className="text-xs opacity-80 mt-0.5">تم إضافته في قسم الموديلات أدناه — انقر &quot;حفظ&quot; لتفعيله على الموقع</p>
           </div>
           <button onClick={reset} className="text-emerald-500 hover:text-emerald-700 transition-colors">
             <X className="w-4 h-4" />
@@ -640,7 +640,6 @@ export default function AdminForm() {
           : [...c.watchIds, id],
       };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateField = <K extends keyof SiteConfig>(key: K, value: SiteConfig[K]) => {
