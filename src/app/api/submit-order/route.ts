@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { google } from "googleapis";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -253,6 +254,67 @@ async function sendEmailNotification(orderData: OrderData): Promise<void> {
 }
 
 // ─────────────────────────────────────────────
+// GOOGLE SHEETS
+// ─────────────────────────────────────────────
+async function saveToGoogleSheets(orderData: OrderData): Promise<void> {
+  if (process.env.SHEETS_ENABLED === "false") return;
+  
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+
+  if (!clientEmail || !privateKey || !sheetId) {
+    console.warn("Google Sheets credentials not configured");
+    return;
+  }
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey,
+      },
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const sheets = google.sheets({ version: "v4", auth });
+
+    const date = new Date();
+    const dateStr = date.toLocaleDateString("en-GB");
+    const timeStr = date.toLocaleTimeString("en-GB");
+    
+    const watchName = orderData.selectedWatchName || orderData.selectedWatchId;
+    const deliveryLabel = orderData.deliveryOption === "home" ? "توصيل للمنزل" : "توصيل للمكتب";
+
+    const values = [[
+      dateStr,
+      timeStr,
+      orderData.clientRequestId?.slice(-8) || "",
+      orderData.fullName,
+      orderData.phone,
+      orderData.wilaya,
+      orderData.baladiya,
+      watchName,
+      orderData.boxPrice,
+      deliveryLabel,
+      orderData.deliveryCost,
+      orderData.total,
+      orderData.notes || "",
+    ]];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: "Sheet1!A:M", // Append to the first sheet
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+    console.log("Successfully appended to Google Sheets");
+  } catch (error) {
+    console.error("Failed to append to Google Sheets:", error);
+  }
+}
+
+// ─────────────────────────────────────────────
 // API HANDLERS
 // ─────────────────────────────────────────────
 export async function POST(
@@ -341,13 +403,19 @@ export async function POST(
 
     processedIds.add(orderData.clientRequestId);
 
-    // ✅ Fire email AFTER the response is sent — zero latency for the user
+    // ✅ Fire integrations AFTER the response is sent — zero latency for the user
     after(async () => {
-      try {
-        await sendEmailNotification(orderData);
-        console.log("Email sent to:", process.env.ORDER_NOTIFICATION_EMAIL);
-      } catch (error) {
-        console.error("Failed to send email:", error);
+      // 1. Google Sheets
+      await saveToGoogleSheets(orderData);
+
+      // 2. Email
+      if (process.env.EMAIL_ENABLED !== "false") {
+        try {
+          await sendEmailNotification(orderData);
+          console.log("Email sent to:", process.env.ORDER_NOTIFICATION_EMAIL);
+        } catch (error) {
+          console.error("Failed to send email:", error);
+        }
       }
     });
 
