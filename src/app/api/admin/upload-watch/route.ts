@@ -93,6 +93,12 @@ export async function POST(request: NextRequest) {
       const base64String = webpBuffer.toString("base64");
       await kv.set(`watch_img_${watchId}`, base64String);
     } else {
+      if (process.env.VERCEL === "1") {
+        return NextResponse.json(
+          { success: false, error: "قاعدة بيانات KV غير متصلة! يجب ربط Vercel KV لرفع الصور." },
+          { status: 500 }
+        );
+      }
       // Local Fallback
       const outputPath = path.join(watchesDir, `${watchId}.webp`);
       fs.writeFileSync(outputPath, webpBuffer);

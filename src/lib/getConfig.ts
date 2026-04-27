@@ -68,6 +68,10 @@ export async function saveConfig(newConfig: SiteConfig): Promise<void> {
   }
 
   // 2 — Local JSON (dev)
+  if (process.env.VERCEL === "1") {
+    throw new Error("قاعدة بيانات KV غير متصلة! يجب ربط Vercel KV بمشروعك لحفظ الإعدادات.");
+  }
+  
   try {
     const { default: fs } = await import("fs");
     const { default: path } = await import("path");
