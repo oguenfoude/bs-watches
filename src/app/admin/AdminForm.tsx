@@ -782,7 +782,7 @@ export default function AdminForm() {
             <TextArea
               value={config.description}
               onChange={(v) => updateField("description", v)}
-              placeholder="10 موديل حصري — ساعة + طقم إكسسوارات + توصيل لباب بيتك."
+              placeholder="11 موديل حصري — ساعة + طقم إكسسوارات + توصيل لباب بيتك."
             />
           </Field>
           <Field label="نص شارة الخصم" hint='مثال: "خصم 25%" — يظهر على صورة المنتج وبجانب السعر'>
