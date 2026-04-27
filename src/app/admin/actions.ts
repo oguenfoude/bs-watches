@@ -88,7 +88,15 @@ export async function deleteWatchModel(
       }
     }
 
-    if (!deletedFiles) {
+    // Delete from KV if it exists there
+    let deletedFromKv = false;
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const { kv } = await import("@vercel/kv");
+      const deleted = await kv.del(`watch_img_${id}`);
+      if (deleted > 0) deletedFromKv = true;
+    }
+
+    if (!deletedFiles && !deletedFromKv) {
        // It might be okay if it doesn't exist, we still want to clean it up
     }
 

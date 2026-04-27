@@ -85,22 +85,41 @@ export async function saveConfig(newConfig: SiteConfig): Promise<void> {
   }
 }
 
-/** Returns a sorted list of watch image IDs found in public/images/watches/ */
+/** Returns a sorted list of watch image IDs found in public/images/watches/ AND KV */
 export async function getAvailableWatchIds(): Promise<number[]> {
+  const ids = new Set<number>();
+
+  // 1. Fetch from KV if available
+  if (hasKv()) {
+    try {
+      const { kv } = await import("@vercel/kv");
+      const keys = await kv.keys("watch_img_*");
+      for (const key of keys) {
+        const idStr = key.replace("watch_img_", "");
+        const id = parseInt(idStr, 10);
+        if (!isNaN(id)) ids.add(id);
+      }
+    } catch (e) {
+      console.error("[getAvailableWatchIds] KV fetch failed:", e);
+    }
+  }
+
+  // 2. Fetch from local files
   try {
     const { default: fs } = await import("fs");
     const { default: path } = await import("path");
     const dir = path.join(process.cwd(), "public", "images", "watches");
-    const files = fs.readdirSync(dir);
-    const ids = [
-      ...new Set(
-        files
-          .map((f) => parseInt(f.replace(/\.\w+$/, ""), 10))
-          .filter((n) => !isNaN(n))
-      ),
-    ].sort((a, b) => a - b);
-    return ids;
-  } catch {
-    return DEFAULT_CONFIG.watchIds;
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      files.forEach((f) => {
+        const n = parseInt(f.replace(/\.\w+$/, ""), 10);
+        if (!isNaN(n)) ids.add(n);
+      });
+    }
+  } catch (e) {
+    console.error("[getAvailableWatchIds] Local fs fetch failed:", e);
   }
+
+  const sortedIds = Array.from(ids).sort((a, b) => a - b);
+  return sortedIds.length > 0 ? sortedIds : DEFAULT_CONFIG.watchIds;
 }

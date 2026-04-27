@@ -188,7 +188,7 @@ export default function ClientLandingPage({ config }: ClientLandingPageProps) {
   const WATCHES: WatchItem[] = config.watchIds.map((n) => ({
     id: `model-${n}`,
     name: `موديل ${n}`,
-    image: `/images/watches/${n}.webp`,
+    image: `/api/watches/${n}`,
   }));
 
   // ── Image carousel state ──

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { google } from "googleapis";
+import { kv } from "@vercel/kv";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -125,10 +126,28 @@ function getEmailTransporter() {
   });
 }
 
-function getWatchImageAttachment(watchId: string) {
+async function getWatchImageAttachment(watchId: string) {
   const match = watchId.match(/model-(\d+)/);
   if (!match) return null;
   const num = match[1];
+
+  // 1. Try KV first
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const base64Data = await kv.get<string>(`watch_img_${num}`);
+      if (base64Data) {
+        return {
+          content: Buffer.from(base64Data, "base64"),
+          filename: `watch-${num}.webp`,
+          cid: `watch-image-${num}@bsmonters`,
+        };
+      }
+    } catch (e) {
+      console.error(`Failed to read image from KV for email:`, e);
+    }
+  }
+
+  // 2. Fallback to local FS
   const imagePath = path.join(
     process.cwd(),
     "public",
@@ -161,7 +180,7 @@ async function sendEmailNotification(orderData: OrderData): Promise<void> {
   const watchName = orderData.selectedWatchName || orderData.selectedWatchId;
   const deliveryLabel =
     orderData.deliveryOption === "home" ? "توصيل للمنزل" : "توصيل للمكتب";
-  const attachment = getWatchImageAttachment(orderData.selectedWatchId);
+  const attachment = await getWatchImageAttachment(orderData.selectedWatchId);
 
 
   const html = `

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
+import sharp from "sharp";
+import { kv } from "@vercel/kv";
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/admin/upload-watch
@@ -49,30 +51,57 @@ export async function POST(request: NextRequest) {
     if (customIdRaw && !isNaN(parseInt(customIdRaw, 10))) {
       watchId = parseInt(customIdRaw, 10);
     } else {
-      // Auto-assign: find the next available ID
-      const existingFiles = fs.readdirSync(watchesDir);
-      const existingIds = existingFiles
-        .map((f) => parseInt(f.replace(/\.\w+$/, ""), 10))
-        .filter((n) => !isNaN(n) && n > 0);
-      watchId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
+      // Auto-assign: find the next available ID from local and KV
+      const localIds: number[] = [];
+      if (fs.existsSync(watchesDir)) {
+        const existingFiles = fs.readdirSync(watchesDir);
+        existingFiles.forEach(f => {
+          const n = parseInt(f.replace(/\.\w+$/, ""), 10);
+          if (!isNaN(n)) localIds.push(n);
+        });
+      }
+      
+      const kvIds: number[] = [];
+      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+        try {
+          const keys = await kv.keys("watch_img_*");
+          keys.forEach(k => {
+            const n = parseInt(k.replace("watch_img_", ""), 10);
+            if (!isNaN(n)) kvIds.push(n);
+          });
+        } catch (e) {
+          console.error("Failed to read KV keys for ID generation:", e);
+        }
+      }
+
+      const allIds = [...localIds, ...kvIds];
+      watchId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
     }
 
-    const outputPath = path.join(watchesDir, `${watchId}.webp`);
-
-    // ── Convert to WebP using sharp (already in package.json) ──
+    // ── Convert to WebP using sharp ──
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { default: sharp } = await import("sharp");
-    await sharp(buffer)
+    const webpBuffer = await sharp(buffer)
       .resize({ width: 800, height: 800, fit: "cover", position: "center" })
       .webp({ quality: 88 })
-      .toFile(outputPath);
+      .toBuffer();
+
+    // ── Save to KV or Local (Fallback) ──
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      // Production / KV Mode
+      const base64String = webpBuffer.toString("base64");
+      await kv.set(`watch_img_${watchId}`, base64String);
+    } else {
+      // Local Fallback
+      const outputPath = path.join(watchesDir, `${watchId}.webp`);
+      fs.writeFileSync(outputPath, webpBuffer);
+    }
 
     return NextResponse.json({
       success: true,
       watchId,
-      path: `/images/watches/${watchId}.webp`,
+      path: `/api/watches/${watchId}`,
       message: `موديل ${watchId} تم حفظه بنجاح`,
     });
   } catch (error) {
@@ -93,18 +122,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const watchesDir = path.join(process.cwd(), "public", "images", "watches");
-    const files = fs.readdirSync(watchesDir);
-    const ids = [
-      ...new Set(
-        files
-          .map((f) => parseInt(f.replace(/\.\w+$/, ""), 10))
-          .filter((n) => !isNaN(n) && n > 0),
-      ),
-    ].sort((a, b) => a - b);
-
+    const { getAvailableWatchIds } = await import("@/lib/getConfig");
+    const ids = await getAvailableWatchIds();
     return NextResponse.json({ success: true, ids });
-  } catch {
+  } catch (e) {
+    console.error("[GET upload-watch] Error:", e);
     return NextResponse.json({ success: false, error: "Could not read watches directory" }, { status: 500 });
   }
 }
