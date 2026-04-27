@@ -190,7 +190,7 @@ function WatchRow({
       <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 border border-slate-200">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/api/watches/${id}`}
+          src={`/api/watches/${id}?v=${config.lastUpdated || ""}`}
           alt=""
           className="w-full h-full object-cover"
           onError={(e) => {

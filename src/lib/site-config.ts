@@ -13,6 +13,8 @@ export interface SiteConfig {
   deliveryCostHome: number;
   /** Ordered list of watch IDs to show on the landing page */
   watchIds: number[];
+  /** Timestamp used for cache-busting images */
+  lastUpdated?: number;
 }
 
 export const DEFAULT_CONFIG: SiteConfig = {
