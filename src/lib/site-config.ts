@@ -20,11 +20,11 @@ export interface SiteConfig {
 export const DEFAULT_CONFIG: SiteConfig = {
   title: "بوكس الفخامة",
   subtitle: "الأكثر مبيعاً في الجزائر",
-  description: "11 موديل حصري — ساعة + طقم إكسسوارات + توصيل لباب بيتك.",
+  description: "10 موديل حصري — ساعة + طقم إكسسوارات + توصيل لباب بيتك.",
   discountBadge: "خصم 25%",
   price: 1500,
   oldPrice: 2000,
   deliveryCostDesk: 500,
   deliveryCostHome: 800,
-  watchIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  watchIds: [1, 2, 3, 5, 6, 7, 8, 9, 10, 11],
 };
